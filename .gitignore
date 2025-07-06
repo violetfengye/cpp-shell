@@ -1,0 +1,68 @@
+# 构建目录
+build/
+bin/
+lib/
+out/
+
+# CMake生成的文件
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+!FindReadline.cmake
+
+
+# 编译产物
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+*.out
+*.app
+
+# 预编译头文件
+*.gch
+*.pch
+
+# 依赖文件
+*.d
+
+# IDE配置
+.idea/
+.vscode/
+*.code-workspace
+.vs/
+*.swp
+*.swo
+
+# 临时文件
+*.log
+*.tmp
+tmp/
+temp/
+*.~*
+*~
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+*.dmp
+
+# 调试文件
+*.pdb
+*.ilk
+*.idb
+
+# 用户特定的设置
+compile_commands.json
+.clangd
+
+# 特定于项目的忽略项
+# 如果有特定于项目的文件需要忽略，请添加在这里 
