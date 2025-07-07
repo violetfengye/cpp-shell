@@ -29,15 +29,18 @@ namespace dash
         enum Flags
         {
             VAR_NONE = 0,
-            VAR_EXPORT = 1,   // 导出到环境变量
-            VAR_READONLY = 2, // 只读变量
-            VAR_SPECIAL = 4   // 特殊变量（如 $?, $#, $0 等）
+            VAR_EXPORT = 1,         // 导出到环境变量
+            VAR_READONLY = 2,       // 只读变量
+            VAR_SPECIAL = 4,        // 特殊变量（如 $?, $#, $0 等）
+            VAR_UPDATE_ON_READ = 8  // 在读取时更新值
         };
 
     private:
         std::string name_;
         std::string value_;
         int flags_;
+        // 函数指针，用于更新变量值
+        std::string (*updateValueFunc_)();
 
     public:
         /**
@@ -61,8 +64,19 @@ namespace dash
          *
          * @return const std::string& 变量值
          */
-        const std::string &getValue() const { return value_; }
+        const std::string &getValue() { 
+            //修改：如果变量是在读时需要更新的，则更新值
+            if (hasFlag(VAR_UPDATE_ON_READ)) {
+                value_ = updateValueFunc_();
+            }
+            return value_; 
+        }
 
+        /**
+         * @brief 设置更新值函数
+         * 
+         */
+        void setUpdateValueFunc(std::string (*func)()) {updateValueFunc_ = func; }
         /**
          * @brief 设置变量值
          *
@@ -152,6 +166,14 @@ namespace dash
          * @return false 设置失败（如变量是只读的）
          */
         bool set(const std::string &name, const std::string &value, int flags = Variable::VAR_NONE);
+
+        /**
+         * @brief 设置更新值函数
+         * 
+         * @param name 变量名
+         * @param func 函数指针
+         */
+        void setUpdateValueFunc(const std::string &name, std::string (*func)());
 
         /**
          * @brief 获取变量值

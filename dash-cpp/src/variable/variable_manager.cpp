@@ -11,6 +11,7 @@
 #include "variable/variable_manager.h"
 #include "core/shell.h"
 #include "utils/error.h"
+#include "variable/prompt_string.h"
 
 extern char **environ;
 
@@ -66,7 +67,10 @@ namespace dash
         }
 
         // 设置一些默认变量
-        set("PS1", "$ ", Variable::VAR_NONE);
+        set("PS1", "$ ", Variable::VAR_READONLY | Variable::VAR_UPDATE_ON_READ);// 修改为只读，且在读时需要更新属性
+        set("FPS1", "$ ", Variable::VAR_READONLY | Variable::VAR_UPDATE_ON_READ);// 修改为只读，且在读时需要更新属性
+        setUpdateValueFunc("PS1", prompt_string::getFormattedPrompt);
+        setUpdateValueFunc("FPS1", prompt_string::getRawPrompt);
         set("PS2", "> ", Variable::VAR_NONE);
         set("IFS", " \t\n", Variable::VAR_NONE);
 
@@ -147,11 +151,20 @@ namespace dash
         return true;
     }
 
+    void VariableManager::setUpdateValueFunc(const std::string &name, std::string (*func)()) {
+        auto it = variables_.find(name);
+        if (it != variables_.end())
+        {
+            it->second->setUpdateValueFunc(func);
+        }
+    }
+
     std::string VariableManager::get(const std::string &name) const
     {
         auto it = variables_.find(name);
         if (it != variables_.end())
         {
+
             return it->second->getValue();
         }
 

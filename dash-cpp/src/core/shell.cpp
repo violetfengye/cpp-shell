@@ -187,7 +187,7 @@ namespace dash
     // 重写 runInteractive 方法，使其更健壮
     int Shell::runInteractive()
     {
-        std::cout << "Dash-CPP Shell Created by Isaleafa." << std::endl;
+        std::cout << "Dash-CPP Shell Created by Isaleafa, with assistance from Rikyon." << std::endl;
 
         sigset_t block_mask, orig_mask;
         sigemptyset(&block_mask);
@@ -335,7 +335,7 @@ namespace dash
         return exit_status_;
     }
 
-    void Shell::displayPrompt()
+    void Shell::displayPrompt()//等待重写
     {
         // 显示提示符 (无变化)
         std::string ps1 = variable_manager_->get("PS1");
