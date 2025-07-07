@@ -250,7 +250,7 @@ namespace dash
     {
     private:
         Shell *shell_;
-        std::unordered_map<int, std::unique_ptr<Job>> jobs_;
+        std::unordered_map<int, std::unique_ptr<Job>> jobs_; // 作业列表
         int next_job_id_;
         bool enabled_;
         int terminal_fd_;
@@ -260,6 +260,10 @@ namespace dash
          * @brief 初始化作业控制
          */
         void initialize();
+
+        // 防止拷贝构造和赋值操作
+        JobControl(const JobControl&) = delete;
+        JobControl& operator=(const JobControl&) = delete;
 
         /**
          * @brief 查找作业
@@ -366,6 +370,14 @@ namespace dash
         bool hasStoppedJobs() const;
 
         /**
+         * @brief 检查是否有活动的作业（运行中或已停止）
+         *
+         * @return true 有活动的作业
+         * @return false 没有活动的作业
+         */
+        bool hasActiveJobs() const;
+
+        /**
          * @brief 清理已完成的作业
          */
         void cleanupJobs();
@@ -390,14 +402,6 @@ namespace dash
          * @return pid_t shell 进程组 ID
          */
         pid_t getShellPgid() const { return shell_pgid_; }
-
-        /**
-         * @brief 检查是否有活动作业
-         *
-         * @return true 有活动作业
-         * @return false 没有活动作业
-         */
-        bool hasActiveJobs() const;
     };
 
 } // namespace dash

@@ -184,12 +184,8 @@ namespace dash
             lexer_->nextToken(); // 消耗 &
             background = true;
 
-            // 如果是简单命令，直接设置后台标志
-            if (command->getType() == NodeType::COMMAND)
-            {
-                // 创建一个只有一个命令的管道节点，并设置后台标志
-                return std::make_unique<PipeNode>(std::move(command), nullptr, background);
-            }
+            // 不论命令类型如何，都创建一个PipeNode并设置后台标志
+            return std::make_unique<PipeNode>(std::move(command), nullptr, background);
         }
 
         return command;

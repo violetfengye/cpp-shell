@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <limits>  // 用于 std::numeric_limits
 #include "core/input.h"
 #include "core/shell.h"
 #include "utils/error.h"
@@ -113,6 +114,17 @@ namespace dash
     bool StdinInputSource::isEOF() const
     {
         return eof_ || std::cin.eof();
+    }
+
+    void StdinInputSource::resetEOF()
+    {
+        eof_ = false;
+        if (std::cin.eof()) {
+            // 重置cin的EOF状态
+            std::cin.clear();
+            // 清空缓冲区
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        }
     }
 
     std::string StdinInputSource::getName() const
@@ -240,6 +252,17 @@ namespace dash
     bool InputHandler::isEOF() const
     {
         return input_stack_.empty() || input_stack_.top()->isEOF();
+    }
+
+    void InputHandler::resetEOF()
+    {
+        if (!input_stack_.empty() && input_stack_.top()->getName() == "stdin")
+        {
+            // 如果是标准输入源，我们可以重置EOF标志
+            // 通过删除当前输入源并创建一个新的来实现
+            input_stack_.pop();
+            input_stack_.push(std::make_unique<StdinInputSource>(true));
+        }
     }
 
     std::string InputHandler::getCurrentSourceName() const

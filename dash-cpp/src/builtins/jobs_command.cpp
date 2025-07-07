@@ -20,6 +20,20 @@ namespace dash
 
     int JobsCommand::execute(const std::vector<std::string> &args)
     {
+        // 添加调试输出
+        std::cout << "执行jobs命令" << std::endl;
+        
+        // 检查作业控制对象
+        JobControl* jc = shell_->getJobControl();
+        if (!jc) {
+            std::cerr << "错误: 作业控制对象为空!" << std::endl;
+            return 1;
+        }
+        
+        if (!jc->isEnabled()) {
+            std::cout << "警告: 作业控制未启用!" << std::endl;
+        }
+        
         bool list_pids = false;
         bool list_running = false;
         bool list_stopped = false;
@@ -61,9 +75,23 @@ namespace dash
         {
             list_running = list_stopped = true;
         }
+        
+        // 显示作业列表前显示作业数量
+        auto &jobs = jc->getJobs();
+        std::cout << "当前作业数量: " << jobs.size() << std::endl;
+        
+        // 手动检查作业列表
+        if (jobs.empty()) {
+            std::cout << "作业列表为空" << std::endl;
+        } else {
+            std::cout << "作业列表内容:" << std::endl;
+            for (const auto& pair : jobs) {
+                std::cout << "  作业 #" << pair.first << ": " << pair.second->getCommand() << std::endl;
+            }
+        }
 
         // 显示作业
-        shell_->getJobControl()->showJobs(changed_only, list_running, list_stopped, list_pids);
+        jc->showJobs(changed_only, list_running, list_stopped, list_pids);
 
         return 0;
     }

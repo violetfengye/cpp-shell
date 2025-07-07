@@ -175,12 +175,13 @@ namespace dash
 
     int Executor::executePipe(const PipeNode *pipe_node)
     {
+        std::cout << "执行管道命令, 后台标志: " << (pipe_node->isBackground() ? "是" : "否") << std::endl;
+        
         // 如果是后台运行，创建作业
         if (pipe_node->isBackground())
         {
             // 创建作业
             // 这里需要实现作业控制
-            // 暂时简单实现，后续完善
             pid_t pid = fork();
 
             if (pid == -1)
@@ -190,6 +191,10 @@ namespace dash
             else if (pid == 0)
             {
                 // 子进程
+                // 设置进程组ID
+                pid_t pgid = getpid();
+                setpgid(pgid, pgid);
+                
                 // 执行管道
                 if (pipe_node->getRight())
                 {
@@ -266,7 +271,49 @@ namespace dash
             }
 
             // 父进程
-            std::cout << "[" << pid << "] " << "Background job started" << std::endl;
+            pid_t pgid = pid;
+            setpgid(pid, pgid);
+            
+            // 构建命令字符串
+            std::string command_str;
+            if (pipe_node->getRight()) {
+                command_str = "管道命令 &";  // 简化表示，实际上应该构建完整命令
+            } else {
+                // 左侧命令
+                CommandNode* cmd = dynamic_cast<CommandNode*>(pipe_node->getLeft());
+                if (cmd) {
+                    command_str = cmd->getArgs()[0];
+                    for (size_t i = 1; i < cmd->getArgs().size(); i++) {
+                        command_str += " " + cmd->getArgs()[i];
+                    }
+                    command_str += " &";
+                } else {
+                    command_str = "未知命令 &";
+                }
+            }
+            
+            std::cout << "创建后台管道作业, PID: " << pid << ", 命令: " << command_str << std::endl;
+            
+            // 调试: 验证shell和job_control不为空
+            if (!shell_) {
+                std::cerr << "错误: shell对象为空!" << std::endl;
+                return 1;
+            }
+            
+            JobControl* jc = shell_->getJobControl();
+            if (!jc) {
+                std::cerr << "错误: 作业控制对象为空!" << std::endl;
+                return 1;
+            }
+            
+            // 添加作业和进程
+            std::cout << "调用addJob, pgid: " << pgid << ", 命令: " << command_str << std::endl;
+            int job_id = jc->addJob(command_str, pgid);
+            
+            std::cout << "调用addProcess, job_id: " << job_id << ", pid: " << pid << std::endl;
+            jc->addProcess(job_id, pid, command_str);
+            
+            std::cout << "[" << job_id << "] Background job started" << std::endl;
             return 0;
         }
 
@@ -675,6 +722,8 @@ namespace dash
     int Executor::executeExternalCommand(const std::string &command, const std::vector<std::string> &args,
                                          const std::vector<Redirection> &redirections, bool background)
     {
+        std::cout << "执行外部命令: " << command << (background ? " (后台)" : " (前台)") << std::endl;
+        
         // 创建子进程
         pid_t pid = fork();
 
@@ -685,6 +734,10 @@ namespace dash
         else if (pid == 0)
         {
             // 子进程
+
+            // 设置进程组ID为自己的PID
+            pid_t pgid = getpid();
+            setpgid(pgid, pgid);
 
             // 设置重定向
             std::unordered_map<int, int> saved_fds;
@@ -699,10 +752,46 @@ namespace dash
         }
 
         // 父进程
+
+        // 确保子进程的进程组ID设置正确
+        pid_t pgid = pid;
+        setpgid(pid, pgid);
+
         if (background)
         {
+            std::cout << "创建后台作业, PID: " << pid << std::endl;
+            
             // 后台运行，不等待子进程完成
-            std::cout << "[" << pid << "] " << command << std::endl;
+            // 创建新作业并添加进程
+            std::string command_str = command;
+            for (size_t i = 1; i < args.size(); i++) {
+                command_str += " " + args[i];
+            }
+            
+            if (background) {
+                command_str += " &";
+            }
+            
+            // 调试: 验证shell和job_control不为空
+            if (!shell_) {
+                std::cerr << "错误: shell对象为空!" << std::endl;
+                return 1;
+            }
+            
+            JobControl* jc = shell_->getJobControl();
+            if (!jc) {
+                std::cerr << "错误: 作业控制对象为空!" << std::endl;
+                return 1;
+            }
+            
+            std::cout << "调用addJob, pgid: " << pgid << ", 命令: " << command_str << std::endl;
+            int job_id = jc->addJob(command_str, pgid);
+            
+            std::cout << "调用addProcess, job_id: " << job_id << ", pid: " << pid << std::endl;
+            jc->addProcess(job_id, pid, command);
+            
+            std::cout << "[" << job_id << "] Background job started" << std::endl;
+            
             return 0;
         }
         else

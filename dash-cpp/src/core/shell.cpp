@@ -48,6 +48,8 @@ namespace dash
         } else if (signo == SIGINT) {
             Shell::received_sigint = 1;
         }
+        // 不要在信号处理函数中做任何其他事情，
+        // 只设置标志，让主循环处理
     }
 
     Shell::Shell()
@@ -189,6 +191,9 @@ namespace dash
     {
         std::cout << "Dash-CPP Shell Created by Isaleafa." << std::endl;
 
+        // 启用作业控制
+        job_control_->enableJobControl();
+
         sigset_t block_mask, orig_mask;
         sigemptyset(&block_mask);
         sigaddset(&block_mask, SIGCHLD);
@@ -208,22 +213,26 @@ namespace dash
             if (Shell::received_sigchld) {
                 Shell::received_sigchld = 0;
                 if (job_control_ && job_control_->isEnabled()) {
-                    job_control_->updateStatus(0); // 更新所有作业状态
+                    // 更新所有作业状态
+                    job_control_->updateStatus(0); 
                     
-                    // 打印已完成作业的通知
-                    bool has_notification = false;
+                    // 立即强制设置所有已完成作业为已通知
                     for (const auto& pair : job_control_->getJobs()) {
                         const auto& job = pair.second;
-                        if (job->getStatus() == JobStatus::DONE && !job->isNotified()) {
-                             if (!has_notification) {
+                        if (job->getStatus() == JobStatus::DONE) {
+                            if (!job->isNotified()) {
                                 std::cout << std::endl; // 在打印提示符前换行
-                                has_notification = true;
+                                std::cout << "[" << job->getId() << "] Done\t" << job->getCommand() << std::endl;
                             }
-                            std::cout << "[" << job->getId() << "] 已完成\t" << job->getCommand() << std::endl;
+                            // 强制设置为已通知，无论之前状态如何
                             const_cast<Job*>(job.get())->setNotified(true);
                         }
                     }
-                    job_control_->cleanupJobs(); // 清理已完成且已通知的作业
+                    
+                    // 收到SIGCHLD后立即多次清理已完成的作业
+                    // 确保作业状态保持最新，不会有已完成作业残留
+                    job_control_->cleanupJobs();
+                    job_control_->cleanupJobs(); // 再清理一次以防万一
                 }
             }
             
@@ -241,6 +250,35 @@ namespace dash
 
                 // 检查是否是文件结尾 (Ctrl+D)
                 if (input_->isEOF()) {
+                    // 在检查作业前，先更新所有作业状态
+                    if (job_control_ && job_control_->isEnabled()) {
+                        job_control_->updateStatus(0);
+                    }
+                    
+                    // 检查是否有后台作业
+                    if (job_control_ && job_control_->hasActiveJobs()) {
+                        std::cout << "有后台作业在运行，不能退出" << std::endl;
+                        job_control_->showJobs(false, true, true, false);
+                        input_->resetEOF(); // 重置EOF标志
+                        
+                        // 额外检查：确保EOF标志被正确重置
+                        if (input_->isEOF()) {
+                            // 如果标准输入仍处于EOF状态，尝试重新打开
+                            freopen("/dev/tty", "r", stdin);
+                            std::cin.clear();
+                        }
+                        
+                        continue; // 继续循环
+                    }
+                    
+                    // 再次检查是否有任何作业（包括已完成但未清理的）
+                    const auto &jobs = job_control_->getJobs();
+                    if (!jobs.empty()) {
+                        job_control_->showJobs(false, true, true, false);
+                        input_->resetEOF(); // 重置EOF标志
+                        continue; // 继续循环
+                    }
+                    
                     std::cout << "exit" << std::endl;
                     break; // 退出循环
                 }
@@ -261,7 +299,10 @@ namespace dash
             }
             catch (const ShellException &e)
             {
-                std::cerr << e.getTypeString() << ": " << e.what() << std::endl;
+                // 仅当不是由exit命令触发的退出异常时才显示错误信息
+                if (e.getType() != ExceptionType::EXIT) {
+                    std::cerr << e.getTypeString() << ": " << e.what() << std::endl;
+                }
                 // 确保在异常情况下恢复信号掩码
                 sigprocmask(SIG_SETMASK, &orig_mask, nullptr);
             }
@@ -271,8 +312,56 @@ namespace dash
                 // 确保在异常情况下恢复信号掩码
                 sigprocmask(SIG_SETMASK, &orig_mask, nullptr);
             }
+
+            // 在每个命令执行完毕后，再次检查SIGCHLD信号
+            // 这样可以确保即使在命令执行中收到的信号也能被正确处理
+            if (Shell::received_sigchld) {
+                Shell::received_sigchld = 0;
+                
+                if (job_control_ && job_control_->isEnabled()) {
+                    job_control_->updateStatus(0);
+                    job_control_->cleanupJobs();
+                }
+            }
         }
 
+        // 最终检查，确保没有后台作业时才真正退出
+        if (job_control_) {
+            // 强制清理一次已完成的作业
+            job_control_->cleanupJobs();
+            
+            // 手动检查是否有任何活动作业
+            bool has_active_jobs = false;
+            const auto &jobs = job_control_->getJobs();
+            
+            for (const auto &pair : jobs) {
+                JobStatus status = pair.second->getStatus();
+                if (status == JobStatus::RUNNING || status == JobStatus::STOPPED) {
+                    has_active_jobs = true;
+                    break;
+                }
+            }
+            
+            if (has_active_jobs) {
+                std::cout << "\n警告: 尝试退出时发现仍有活动的后台作业，重置exit_requested_标志" << std::endl;
+                exit_requested_ = false;
+                
+                // 显示活动的作业
+                for (const auto &pair : jobs) {
+                    const auto &job = pair.second;
+                    if (job->getStatus() == JobStatus::RUNNING || job->getStatus() == JobStatus::STOPPED) {
+                        std::cout << "  [" << pair.first << "] " 
+                                 << (job->getStatus() == JobStatus::RUNNING ? "Running" : "Stopped")
+                                 << "\t" << job->getCommand() << std::endl;
+                    }
+                }
+                
+                // 继续执行主循环
+                return runInteractive();
+            }
+        }
+        
+        std::cout << "Shell退出" << std::endl;
         return exit_status_;
     }
 

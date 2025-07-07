@@ -174,6 +174,11 @@ namespace dash
         bool isEOF() const override;
 
         /**
+         * @brief 重置EOF标志
+         */
+        void resetEOF();
+
+        /**
          * @brief 获取输入源名称
          *
          * @return std::string 输入源名称
@@ -227,9 +232,22 @@ namespace dash
          * @brief 读取一行输入
          *
          * @param show_prompt 是否显示提示符
-         * @return std::string 读取的行
+         * @return std::string 读取的行，如果到达文件末尾则返回空字符串
          */
         std::string readLine(bool show_prompt);
+
+        /**
+         * @brief 检查是否到达文件末尾
+         *
+         * @return true 到达文件末尾
+         * @return false 未到达文件末尾
+         */
+        bool isEOF() const;
+
+        /**
+         * @brief 重置EOF状态（用于处理Ctrl+D）
+         */
+        void resetEOF();
 
         /**
          * @brief 将文件作为输入源
@@ -258,14 +276,6 @@ namespace dash
          * @return false 失败（栈为空）
          */
         bool popFile();
-
-        /**
-         * @brief 检查是否到达文件末尾
-         *
-         * @return true 到达文件末尾
-         * @return false 未到达文件末尾
-         */
-        bool isEOF() const;
 
         /**
          * @brief 获取当前输入源名称
