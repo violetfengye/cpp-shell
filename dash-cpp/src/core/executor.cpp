@@ -23,6 +23,7 @@
 #include "builtins/jobs_command.h"
 #include "builtins/fg_command.h"
 #include "builtins/bg_command.h"
+#include "builtins/sprf_command.h"
 
 namespace dash
 {
@@ -741,6 +742,7 @@ namespace dash
         auto jobs_cmd = std::make_shared<JobsCommand>(shell_);
         auto fg_cmd = std::make_shared<FgCommand>(shell_);
         auto bg_cmd = std::make_shared<BgCommand>(shell_);
+        auto sprf_cmd = std::make_shared<SprfCommand>(shell_);
 
         // 保存内置命令对象
         builtin_commands_.push_back(cd_cmd);
@@ -750,6 +752,7 @@ namespace dash
         builtin_commands_.push_back(jobs_cmd);
         builtin_commands_.push_back(fg_cmd);
         builtin_commands_.push_back(bg_cmd);
+        builtin_commands_.push_back(sprf_cmd);
 
         // 注册内置命令
         builtins_[cd_cmd->getName()] = [cd_cmd](const std::vector<std::string> &args) -> int
@@ -785,6 +788,11 @@ namespace dash
         builtins_[bg_cmd->getName()] = [bg_cmd](const std::vector<std::string> &args) -> int
         {
             return bg_cmd->execute(args);
+        };
+        
+        builtins_[sprf_cmd->getName()] = [sprf_cmd](const std::vector<std::string> &args) -> int
+        {
+            return sprf_cmd->execute(args);
         };
 
         // TODO: 添加更多内置命令

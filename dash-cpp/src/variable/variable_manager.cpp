@@ -69,8 +69,8 @@ namespace dash
         // 设置一些默认变量
         set("PS1", "$ ", Variable::VAR_READONLY | Variable::VAR_UPDATE_ON_READ);// 修改为只读，且在读时需要更新属性
         set("FPS1", "$ ", Variable::VAR_READONLY | Variable::VAR_UPDATE_ON_READ);// 修改为只读，且在读时需要更新属性
-        setUpdateValueFunc("PS1", prompt_string::getFormattedPrompt);
-        setUpdateValueFunc("FPS1", prompt_string::getRawPrompt);
+        setUpdateValueFunc("PS1", prompt_string::getRawPrompt);
+        setUpdateValueFunc("FPS1", prompt_string::getFormattedPrompt);
         set("PS2", "> ", Variable::VAR_NONE);
         set("IFS", " \t\n", Variable::VAR_NONE);
 

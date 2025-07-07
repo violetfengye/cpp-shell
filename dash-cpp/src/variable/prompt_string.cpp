@@ -70,7 +70,7 @@ namespace dash{
                     PROINFORESET + ":" + 
                     PROINFOBLUE + cwd + 
                     PROINFORED + indicator + 
-                    PROINFORESET;
+                    PROINFORESET + " ";
                 
                 //snprintf(prompt, PROINFOMAXSIZE, "%s%s@%s%s:%s%s%s%s%s ",
                 //    PROINFOGREEN, user, hostname, PROINFORESET,PROINFOBLUE, cwd, PROINFORED, indicator, PROINFORESET);
@@ -89,7 +89,7 @@ namespace dash{
                     PROINFORESET + ":" +
                     PROINFOBLUE + cwd +
                     PROINFOYELLOW + indicator +
-                    PROINFORESET;
+                    PROINFORESET + " ";
 
                 //snprintf(prompt, PROINFOMAXSIZE, "%s%s@%s%s:%s%s%s%s%s ",
                 //    PROINFOGREEN, user, hostname, PROINFORESET,PROINFOBLUE, cwd, PROINFOYELLOW, indicator, PROINFORESET);
@@ -130,9 +130,9 @@ namespace dash{
 
         // 检查是否为 root 用户
         if (getuid() == 0) {
-            prompt = user + "@" + hostname + ":" + cwd + "#";
+            prompt = user + "@" + hostname + ":" + cwd + "#" + " ";
         }else{
-            prompt = user + "@" + hostname + ":" + cwd + "$";
+            prompt = user + "@" + hostname + ":" + cwd + "$" + " ";
         }
         return prompt;
         

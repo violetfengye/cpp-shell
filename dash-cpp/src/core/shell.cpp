@@ -335,10 +335,10 @@ namespace dash
         return exit_status_;
     }
 
-    void Shell::displayPrompt()//等待重写
+    void Shell::displayPrompt()
     {
-        // 显示提示符 (无变化)
-        std::string ps1 = variable_manager_->get("PS1");
+        // 显示带格式提示符 (无变化)
+        std::string ps1 = variable_manager_->get("FPS1");
         if (ps1.empty())
         {
             ps1 = "$ ";
