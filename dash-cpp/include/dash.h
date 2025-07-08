@@ -18,6 +18,8 @@
 #define DASH_VERSION_MINOR 1
 #define DASH_VERSION_PATCH 0
 
+namespace dash {
+
 // 异常类型
 enum class ExceptionType
 {
@@ -26,7 +28,10 @@ enum class ExceptionType
     ERROR,     // 一般错误
     SYNTAX,    // 语法错误
     MEMORY,    // 内存错误
-    IO         // 输入输出错误
+    IO,        // 输入输出错误
+    RUNTIME,   // 运行时错误
+    SYSTEM,    // 系统错误
+    INTERNAL   // 内部错误
 };
 
 // 节点类型
@@ -42,8 +47,8 @@ enum class NodeType
     SUBSHELL // 子 shell
 };
 
-// 词法单元类型
-enum class TokenType
+// 词法单元类型（仅供内部使用，优先使用core/lexer.h中的定义）
+enum class GlobalTokenType
 {
     WORD,        // 单词
     OPERATOR,    // 操作符
@@ -54,35 +59,32 @@ enum class TokenType
 };
 
 // 前向声明
-namespace dash
-{
-    class Shell;
-    class Node;
-    class Parser;
-    class Executor;
-    class InputHandler;
-    class JobControl;
-    class VariableManager;
-    class BuiltinCommand;
-    class ShellException;
-    
-    /**
-     * @brief 创建 Shell 实例
-     *
-     * @param argc 参数数量
-     * @param argv 参数数组
-     * @return int 退出状态码
-     */
-    int createShell(int argc, char *argv[]);
-}
+class Shell;
+class Node;
+class Parser;
+class Executor;
+class InputHandler;
+class JobControl;
+class VariableManager;
+class BuiltinCommand;
+class ShellException;
 
 /**
- * @brief 词法单元类
+ * @brief 创建 Shell 实例
+ *
+ * @param argc 参数数量
+ * @param argv 参数数组
+ * @return int 退出状态码
  */
-class Token
+int createShell(int argc, char *argv[]);
+
+/**
+ * @brief 全局词法单元类（仅供内部使用，优先使用core/lexer.h中的定义）
+ */
+class GlobalToken
 {
 private:
-    TokenType type_;
+    GlobalTokenType type_;
     std::string value_;
 
 public:
@@ -92,7 +94,7 @@ public:
      * @param type 词法单元类型
      * @param value 词法单元值
      */
-    Token(TokenType type, const std::string &value)
+    GlobalToken(GlobalTokenType type, const std::string &value)
         : type_(type), value_(value)
     {
     }
@@ -100,9 +102,9 @@ public:
     /**
      * @brief 获取词法单元类型
      *
-     * @return TokenType 词法单元类型
+     * @return GlobalTokenType 词法单元类型
      */
-    TokenType getType() const { return type_; }
+    GlobalTokenType getType() const { return type_; }
 
     /**
      * @brief 获取词法单元值
@@ -111,5 +113,7 @@ public:
      */
     const std::string &getValue() const { return value_; }
 };
+
+} // namespace dash
 
 #endif // DASH_H

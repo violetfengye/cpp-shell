@@ -1,18 +1,8 @@
 # 测试目录的 CMakeLists.txt
 
-# 查找 Google Test
-find_package(GTest QUIET)
-
-if(NOT GTEST_FOUND)
-    # 如果没有找到 Google Test，则下载并构建它
-    include(FetchContent)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG release-1.11.0
-    )
-    FetchContent_MakeAvailable(googletest)
-endif()
+# 查找本地安装的 Google Test
+find_package(GTest REQUIRED)
+find_package(Threads REQUIRED)  # GTest通常需要线程库
 
 # 测试源文件
 file(GLOB_RECURSE TEST_SOURCES 
@@ -39,8 +29,8 @@ add_executable(dash-cpp-tests ${TEST_SOURCES})
 
 # 链接 Google Test 和项目库
 target_link_libraries(dash-cpp-tests PRIVATE
-    gtest
-    gtest_main
+    ${GTEST_BOTH_LIBRARIES}  # 包含gtest和gtest_main
+    ${CMAKE_THREAD_LIBS_INIT}  # 线程库
     # 链接到项目的库
     dash-lib
 )
@@ -48,7 +38,7 @@ target_link_libraries(dash-cpp-tests PRIVATE
 # 包含目录
 target_include_directories(dash-cpp-tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include
-    ${GTEST_INCLUDE_DIRS}
+    ${GTEST_INCLUDE_DIRS}  # GTest头文件路径
 )
 
 # 添加测试

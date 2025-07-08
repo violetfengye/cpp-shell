@@ -89,12 +89,12 @@ std::vector<Token> Arithmetic::tokenize(const std::string& expression) {
                 number += expression[i++];
             }
             --i; // 回退一位，因为循环会再自增
-            tokens.push_back(Token(TokenType::WORD, number));
+            tokens.push_back(Token(TokenType::WORD, number, 0, 0));
         }
         // 处理操作符
         else if (c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '(' || c == ')') {
             std::string op(1, c);
-            tokens.push_back(Token(TokenType::OPERATOR, op));
+            tokens.push_back(Token(TokenType::OPERATOR, op, 0, 0));
         }
         // 处理变量等其他情况...
     }

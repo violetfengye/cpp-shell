@@ -21,6 +21,7 @@ namespace dash
     class VariableManager;
     class JobControl;
     class PipeNode;
+    class History;  // 添加History类前向声明
 
     /**
      * @brief Shell 类
@@ -35,6 +36,7 @@ namespace dash
         std::unique_ptr<Parser> parser_;
         std::unique_ptr<Executor> executor_;
         std::unique_ptr<JobControl> job_control_;
+        std::unique_ptr<History> history_;  // 添加History成员变量
 
         bool interactive_;
         bool exit_requested_;
@@ -161,6 +163,13 @@ namespace dash
          * @return JobControl* 作业控制指针
          */
         JobControl *getJobControl() const;
+
+        /**
+         * @brief 获取历史记录管理器
+         *
+         * @return History* 历史记录管理器指针
+         */
+        History *getHistory() const;
 
         /**
          * @brief 是否是交互式模式

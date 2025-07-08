@@ -14,20 +14,6 @@ namespace dash
 {
 
     /**
-     * @brief 异常类型枚举
-     */
-    enum class ExceptionType
-    {
-        SYNTAX,  // 语法错误
-        RUNTIME, // 运行时错误
-        MEMORY,  // 内存错误
-        IO,      // IO 错误
-        SYSTEM,  // 系统错误
-        INTERNAL, // 内部错误
-        EXIT     // 退出请求
-    };
-
-    /**
      * @brief Shell 异常类
      */
     class ShellException : public std::runtime_error
@@ -77,6 +63,10 @@ namespace dash
                 return "Internal Error";
             case ExceptionType::EXIT:
                 return "Exit Request";
+            case ExceptionType::ERROR:
+                return "Error";
+            case ExceptionType::INTERRUPT:
+                return "Interrupt";
             default:
                 return "Unknown Error";
             }

@@ -11,6 +11,7 @@
 #include "utils/error.h"
 #include "core/executor.h"
 #include "job/job_control.h"
+#include "../core/debug.h"
 
 namespace dash
 {
@@ -88,21 +89,20 @@ namespace dash
         // 在继续前再次检查作业的状态
         if (has_active_jobs) {
             // 输出作业状态详细信息
-            std::cout << "当前有活动的作业:" << std::endl;
+            DebugLog::logCommand("当前有活动的作业:");
             for (const auto &pair : jobs) {
                 const auto &job = pair.second;
                 JobStatus job_status = job->getStatus();
                 // 只显示活动的作业
                 if (job_status == JobStatus::RUNNING || job_status == JobStatus::STOPPED) {
-                    std::cout << "  [" << pair.first << "] " << 
-                        (job_status == JobStatus::RUNNING ? "Running" : "Stopped")
-                        << "\t" << job->getCommand() << std::endl;
+                    DebugLog::logCommand("  [" + std::to_string(pair.first) + "] " + 
+                        (job_status == JobStatus::RUNNING ? "Running" : "Stopped") + "\t" + job->getCommand());
                 }
             }
             
             // 如果有作业在后台运行，并且是交互式shell，则提示用户
             if (shell_->isInteractive()) {
-                std::cerr << "exit: 有后台作业在运行" << std::endl;
+                DebugLog::logCommand("exit: 有后台作业在运行");
                 return 1; // 返回错误状态，阻止退出
             }
         }
@@ -119,12 +119,12 @@ namespace dash
         }
         
         if (has_completed_jobs) {
-            std::cout << "以下作业已完成:" << std::endl;
+            DebugLog::logCommand("以下作业已完成:");
             jc->showJobs(false, false, false, false);  // 显示所有已完成作业
         }
 
         // 如果没有活动作业，则可以安全退出
-        std::cout << "准备退出shell，状态码: " << status << std::endl;
+        DebugLog::logCommand("准备退出shell，状态码: " + std::to_string(status));
         
         // 请求退出shell
         shell_->exit(status);

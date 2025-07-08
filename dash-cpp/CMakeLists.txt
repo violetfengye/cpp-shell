@@ -23,6 +23,13 @@ option(USE_READLINE "Use readline library" ON)
 # 依赖检查
 if(USE_READLINE)
     find_package(Readline REQUIRED)
+    if(READLINE_FOUND)
+        add_definitions(-DREADLINE_ENABLED)
+        message(STATUS "Found Readline: ${READLINE_INCLUDE_DIR}")
+    else()
+        message(WARNING "Readline not found, disabling Readline support")
+        set(USE_READLINE OFF)
+    endif()
 endif()
 
 # 包含目录
@@ -34,11 +41,23 @@ endif()
 # 源文件
 file(GLOB_RECURSE SOURCES 
     "src/*.cpp"
+    src/builtins/bg_command.cpp
+    src/builtins/cd_command.cpp
+    src/builtins/echo_command.cpp
+    src/builtins/exit_command.cpp
+    src/builtins/fg_command.cpp
+    src/builtins/jobs_command.cpp
+    src/builtins/pwd_command.cpp
+    src/builtins/help_command.cpp
+    src/builtins/debug_command.cpp
+    src/builtins/source_command.cpp
+    src/core/debug.cpp
 )
 
 # 头文件
 file(GLOB_RECURSE HEADERS 
     "include/*.h"
+    "src/core/debug.h"
 )
 
 # 分离主函数文件和库文件
@@ -55,12 +74,16 @@ endif()
 add_executable(dash ${MAIN_SOURCE})
 target_link_libraries(dash PRIVATE dash-lib)
 
+# 补全测试程序
+add_executable(test_completion test_completion.cpp)
+target_link_libraries(test_completion PRIVATE dash-lib)
+
 # 安装规则
 install(TARGETS dash DESTINATION bin)
 
-# # 测试
-# if(BUILD_TESTS)
-# enable_testing()
-# # 添加测试子目录
-# add_subdirectory(tests)
-# endif()
+# 测试
+if(BUILD_TESTS)
+    enable_testing()
+    # 添加测试子目录
+    add_subdirectory(tests)
+endif()

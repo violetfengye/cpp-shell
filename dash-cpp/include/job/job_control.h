@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <memory>
 #include <sys/types.h>
+#include <termios.h>
 
 namespace dash
 {
@@ -255,11 +256,21 @@ namespace dash
         bool enabled_;
         int terminal_fd_;
         pid_t shell_pgid_;
+        pid_t shell_pid_;
+        struct termios shell_tmodes;
 
         /**
          * @brief 初始化作业控制
+         * 
+         * @return true 初始化成功
+         * @return false 初始化失败
          */
-        void initialize();
+        bool initialize();
+
+        /**
+         * @brief 设置作业控制信号处理
+         */
+        void setupSignalHandlers();
 
         // 防止拷贝构造和赋值操作
         JobControl(const JobControl&) = delete;
@@ -288,8 +299,11 @@ namespace dash
 
         /**
          * @brief 启用作业控制
+         * 
+         * @return true 启用成功
+         * @return false 启用失败
          */
-        void enableJobControl();
+        bool enableJobControl();
 
         /**
          * @brief 检查作业控制是否已启用

@@ -11,6 +11,7 @@
 #include <stack>
 #include <fstream>
 #include <vector>
+#include <functional>  // 添加functional头文件以支持回调函数
 
 namespace dash
 {
@@ -148,6 +149,28 @@ namespace dash
         bool eof_;
         bool interactive_;
         std::string prompt_;
+        bool use_readline_;  // 是否使用readline库
+
+        // Tab自动补全相关函数类型定义
+        using CompletionFunc = std::function<std::vector<std::string>(const std::string&, int, int)>;
+        CompletionFunc completion_func_;  // Tab自动补全回调函数
+
+        /**
+         * @brief 初始化readline库
+         */
+        void initializeReadline();
+
+        /**
+         * @brief 清理readline库资源
+         */
+        void cleanupReadline();
+
+        /**
+         * @brief 读取带有readline功能的输入
+         * 
+         * @return std::string 读取的行
+         */
+        std::string readLineWithReadline();
 
     public:
         /**
@@ -155,8 +178,14 @@ namespace dash
          *
          * @param interactive 是否交互模式
          * @param prompt 提示符
+         * @param use_readline 是否使用readline库
          */
-        explicit StdinInputSource(bool interactive = false, const std::string &prompt = "$ ");
+        explicit StdinInputSource(bool interactive = false, const std::string &prompt = "$ ", bool use_readline = true);
+
+        /**
+         * @brief 析构函数
+         */
+        ~StdinInputSource();
 
         /**
          * @brief 读取一行输入
@@ -191,6 +220,23 @@ namespace dash
          * @param prompt 提示符
          */
         void setPrompt(const std::string &prompt);
+        
+        /**
+         * @brief 设置Tab自动补全回调函数
+         * 
+         * @param func 补全函数
+         */
+        void setCompletionFunction(CompletionFunc func);
+
+        /**
+         * @brief 执行Tab自动补全
+         * 
+         * @param text 待补全的文本
+         * @param start 待补全部分的起始位置
+         * @param end 待补全部分的结束位置
+         * @return std::vector<std::string> 补全结果列表
+         */
+        std::vector<std::string> complete(const std::string& text, int start, int end);
     };
 
     /**
@@ -214,6 +260,16 @@ namespace dash
     private:
         Shell *shell_;
         std::stack<std::unique_ptr<InputSource>> input_stack_;
+
+        /**
+         * @brief Tab自动补全函数
+         * 
+         * @param text 待补全的文本
+         * @param start 待补全部分的起始位置
+         * @param end 待补全部分的结束位置
+         * @return std::vector<std::string> 补全结果列表
+         */
+        std::vector<std::string> tabCompletion(const std::string& text, int start, int end);
 
     public:
         /**
@@ -250,30 +306,27 @@ namespace dash
         void resetEOF();
 
         /**
-         * @brief 将文件作为输入源
+         * @brief 将文件作为输入源压入栈
          *
          * @param filename 文件名
-         * @param flags 输入标志
-         * @return true 成功
-         * @return false 失败
+         * @param flags 标志
+         * @return bool 是否成功
          */
         bool pushFile(const std::string &filename, int flags);
 
         /**
-         * @brief 将字符串作为输入源
+         * @brief 将字符串作为输入源压入栈
          *
          * @param str 输入字符串
          * @param name 输入源名称
-         * @return true 成功
-         * @return false 失败
+         * @return bool 是否成功
          */
         bool pushString(const std::string &str, const std::string &name = "string");
 
         /**
          * @brief 弹出当前输入源
          *
-         * @return true 成功
-         * @return false 失败（栈为空）
+         * @return bool 是否成功
          */
         bool popFile();
 
@@ -290,6 +343,18 @@ namespace dash
          * @param prompt 提示符
          */
         void setPrompt(const std::string &prompt);
+
+        /**
+         * @brief Tab自动补全函数（公共版本，用于测试）
+         * 
+         * @param text 待补全的文本
+         * @param start 待补全部分的起始位置
+         * @param end 待补全部分的结束位置
+         * @return std::vector<std::string> 补全结果列表
+         */
+        std::vector<std::string> testTabCompletion(const std::string& text, int start, int end) {
+            return tabCompletion(text, start, end);
+        }
     };
 
 } // namespace dash

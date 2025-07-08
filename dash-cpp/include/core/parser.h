@@ -11,6 +11,7 @@
 #include <vector>
 #include <stack>
 #include "core/lexer.h"
+#include "core/node.h"
 
 namespace dash
 {
@@ -32,6 +33,7 @@ namespace dash
         std::stack<std::string> if_stack_;
         std::stack<std::string> case_stack_;
         std::stack<std::string> loop_stack_;
+        std::string last_command_; // 添加最后执行的命令字符串
 
         /**
          * @brief 解析简单命令
@@ -149,6 +151,14 @@ namespace dash
         ~Parser();
 
         /**
+         * @brief 解析输入字符串
+         * 
+         * @param input 要解析的输入字符串
+         * @return std::unique_ptr<Node> 解析后的语法树根节点
+         */
+        std::unique_ptr<Node> parse(const std::string &input);
+
+        /**
          * @brief 解析命令
          *
          * @param interactive 是否是交互式模式
@@ -169,6 +179,13 @@ namespace dash
          * @return Lexer* 词法分析器指针
          */
         Lexer *getLexer() const { return lexer_.get(); }
+
+        /**
+         * @brief 获取最后执行的命令
+         *
+         * @return const std::string& 命令字符串
+         */
+        const std::string& getLastCommand() const;
     };
 
 } // namespace dash

@@ -30,7 +30,15 @@ namespace dash
 
     void Parser::setInput(const std::string &input)
     {
+        last_command_ = input; // 保存命令字符串
         lexer_->setInput(input);
+    }
+
+    std::unique_ptr<Node> Parser::parse(const std::string &input)
+    {
+        last_command_ = input; // 保存命令字符串
+        setInput(input);
+        return parseCommand(false);
     }
 
     std::unique_ptr<Node> Parser::parseCommand(bool interactive)
@@ -48,7 +56,8 @@ namespace dash
                     return nullptr; // EOF
                 }
 
-                // 设置词法分析器的输入
+                // 保存命令字符串并设置词法分析器的输入
+                last_command_ = line;
                 lexer_->setInput(line);
             }
 
@@ -700,6 +709,11 @@ namespace dash
         }
 
         return subshell;
+    }
+
+    const std::string& Parser::getLastCommand() const
+    {
+        return last_command_;
     }
 
 } // namespace dash

@@ -11,6 +11,7 @@
 #include <vector>
 #include <unordered_map>
 #include "../dash.h"
+#include "../core/lexer.h"
 
 namespace dash {
 

@@ -36,7 +36,7 @@ public:
 
         // 确保没有多余的词法单元
         auto extra = lexer.nextToken();
-        return extra && extra->getType() == TokenType::END_OF_INPUT;
+        return extra && extra->getType() == dash::TokenType::END_OF_INPUT;
     }
 
 private:
@@ -63,9 +63,9 @@ TEST_F(LexerTest, SimpleCommand)
     lexer_->setInput("echo hello world");
 
     TokenSequence expected;
-    expected.addToken(TokenType::WORD, "echo");
-    expected.addToken(TokenType::WORD, "hello");
-    expected.addToken(TokenType::WORD, "world");
+    expected.addToken(dash::TokenType::WORD, "echo");
+    expected.addToken(dash::TokenType::WORD, "hello");
+    expected.addToken(dash::TokenType::WORD, "world");
 
     EXPECT_TRUE(expected.match(*lexer_));
 }
@@ -76,14 +76,14 @@ TEST_F(LexerTest, Pipeline)
     lexer_->setInput("ls -l | grep foo | wc -l");
 
     TokenSequence expected;
-    expected.addToken(TokenType::WORD, "ls");
-    expected.addToken(TokenType::WORD, "-l");
-    expected.addToken(TokenType::OPERATOR, "|");
-    expected.addToken(TokenType::WORD, "grep");
-    expected.addToken(TokenType::WORD, "foo");
-    expected.addToken(TokenType::OPERATOR, "|");
-    expected.addToken(TokenType::WORD, "wc");
-    expected.addToken(TokenType::WORD, "-l");
+    expected.addToken(dash::TokenType::WORD, "ls");
+    expected.addToken(dash::TokenType::WORD, "-l");
+    expected.addToken(dash::TokenType::OPERATOR, "|");
+    expected.addToken(dash::TokenType::WORD, "grep");
+    expected.addToken(dash::TokenType::WORD, "foo");
+    expected.addToken(dash::TokenType::OPERATOR, "|");
+    expected.addToken(dash::TokenType::WORD, "wc");
+    expected.addToken(dash::TokenType::WORD, "-l");
 
     EXPECT_TRUE(expected.match(*lexer_));
 }
@@ -94,13 +94,13 @@ TEST_F(LexerTest, Redirection)
     lexer_->setInput("cat file.txt > output.txt 2> error.log");
 
     TokenSequence expected;
-    expected.addToken(TokenType::WORD, "cat");
-    expected.addToken(TokenType::WORD, "file.txt");
-    expected.addToken(TokenType::OPERATOR, ">");
-    expected.addToken(TokenType::WORD, "output.txt");
-    expected.addToken(TokenType::IO_NUMBER, "2");
-    expected.addToken(TokenType::OPERATOR, ">");
-    expected.addToken(TokenType::WORD, "error.log");
+    expected.addToken(dash::TokenType::WORD, "cat");
+    expected.addToken(dash::TokenType::WORD, "file.txt");
+    expected.addToken(dash::TokenType::OPERATOR, ">");
+    expected.addToken(dash::TokenType::WORD, "output.txt");
+    expected.addToken(dash::TokenType::IO_NUMBER, "2");
+    expected.addToken(dash::TokenType::OPERATOR, ">");
+    expected.addToken(dash::TokenType::WORD, "error.log");
 
     EXPECT_TRUE(expected.match(*lexer_));
 }
@@ -111,9 +111,9 @@ TEST_F(LexerTest, VariableAssignment)
     lexer_->setInput("VAR=value command arg");
 
     TokenSequence expected;
-    expected.addToken(TokenType::ASSIGNMENT, "VAR=value");
-    expected.addToken(TokenType::WORD, "command");
-    expected.addToken(TokenType::WORD, "arg");
+    expected.addToken(dash::TokenType::ASSIGNMENT, "VAR=value");
+    expected.addToken(dash::TokenType::WORD, "command");
+    expected.addToken(dash::TokenType::WORD, "arg");
 
     EXPECT_TRUE(expected.match(*lexer_));
 }
@@ -124,9 +124,9 @@ TEST_F(LexerTest, Quotes)
     lexer_->setInput("echo \"Hello, world!\" 'Single quotes'");
 
     TokenSequence expected;
-    expected.addToken(TokenType::WORD, "echo");
-    expected.addToken(TokenType::WORD, "\"Hello, world!\"");
-    expected.addToken(TokenType::WORD, "'Single quotes'");
+    expected.addToken(dash::TokenType::WORD, "echo");
+    expected.addToken(dash::TokenType::WORD, "\"Hello, world!\"");
+    expected.addToken(dash::TokenType::WORD, "'Single quotes'");
 
     EXPECT_TRUE(expected.match(*lexer_));
 }
@@ -137,11 +137,11 @@ TEST_F(LexerTest, Comments)
     lexer_->setInput("echo hello # This is a comment\necho world");
 
     TokenSequence expected;
-    expected.addToken(TokenType::WORD, "echo");
-    expected.addToken(TokenType::WORD, "hello");
-    expected.addToken(TokenType::NEWLINE, "\n");
-    expected.addToken(TokenType::WORD, "echo");
-    expected.addToken(TokenType::WORD, "world");
+    expected.addToken(dash::TokenType::WORD, "echo");
+    expected.addToken(dash::TokenType::WORD, "hello");
+    expected.addToken(dash::TokenType::NEWLINE, "\n");
+    expected.addToken(dash::TokenType::WORD, "echo");
+    expected.addToken(dash::TokenType::WORD, "world");
 
     EXPECT_TRUE(expected.match(*lexer_));
 }
@@ -152,11 +152,11 @@ TEST_F(LexerTest, ComplexOperators)
     lexer_->setInput("cmd1 && cmd2 || cmd3");
 
     TokenSequence expected;
-    expected.addToken(TokenType::WORD, "cmd1");
-    expected.addToken(TokenType::OPERATOR, "&&");
-    expected.addToken(TokenType::WORD, "cmd2");
-    expected.addToken(TokenType::OPERATOR, "||");
-    expected.addToken(TokenType::WORD, "cmd3");
+    expected.addToken(dash::TokenType::WORD, "cmd1");
+    expected.addToken(dash::TokenType::OPERATOR, "&&");
+    expected.addToken(dash::TokenType::WORD, "cmd2");
+    expected.addToken(dash::TokenType::OPERATOR, "||");
+    expected.addToken(dash::TokenType::WORD, "cmd3");
 
     EXPECT_TRUE(expected.match(*lexer_));
 }
@@ -167,8 +167,8 @@ TEST_F(LexerTest, EscapeCharacters)
     lexer_->setInput("echo \"Hello\\\"World\"");
 
     TokenSequence expected;
-    expected.addToken(TokenType::WORD, "echo");
-    expected.addToken(TokenType::WORD, "\"Hello\\\"World\"");
+    expected.addToken(dash::TokenType::WORD, "echo");
+    expected.addToken(dash::TokenType::WORD, "\"Hello\\\"World\"");
 
     EXPECT_TRUE(expected.match(*lexer_));
 }
@@ -179,11 +179,11 @@ TEST_F(LexerTest, MultilineInput)
     lexer_->setInput("cmd1\ncmd2\ncmd3");
 
     TokenSequence expected;
-    expected.addToken(TokenType::WORD, "cmd1");
-    expected.addToken(TokenType::NEWLINE, "\n");
-    expected.addToken(TokenType::WORD, "cmd2");
-    expected.addToken(TokenType::NEWLINE, "\n");
-    expected.addToken(TokenType::WORD, "cmd3");
+    expected.addToken(dash::TokenType::WORD, "cmd1");
+    expected.addToken(dash::TokenType::NEWLINE, "\n");
+    expected.addToken(dash::TokenType::WORD, "cmd2");
+    expected.addToken(dash::TokenType::NEWLINE, "\n");
+    expected.addToken(dash::TokenType::WORD, "cmd3");
 
     EXPECT_TRUE(expected.match(*lexer_));
 }
@@ -194,7 +194,7 @@ TEST_F(LexerTest, UnterminatedQuote)
     lexer_->setInput("echo \"Hello");
 
     EXPECT_THROW({
-        while (lexer_->nextToken()->getType() != TokenType::END_OF_INPUT) {} }, ShellException);
+        while (lexer_->nextToken()->getType() != dash::TokenType::END_OF_INPUT) {} }, ShellException);
 }
 
 int main(int argc, char **argv)

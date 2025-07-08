@@ -6,9 +6,11 @@
 #include "../../include/utils/history.h"
 #include "../../include/core/shell.h"
 #include <fstream>
+#include <iostream>
 #include <algorithm>
 #include <ctime>
 #include <regex>
+#include "../core/debug.h"
 
 namespace dash {
 
@@ -91,13 +93,42 @@ bool History::loadFromFile(const std::string& filename) {
     
     std::string line;
     while (std::getline(file, line)) {
-        // 简单格式：时间戳 命令
+        // 跳过空行
+        if (line.empty()) {
+            continue;
+        }
+        
+        // 尝试解析格式：时间戳 命令
         size_t spacePos = line.find(' ');
         if (spacePos != std::string::npos) {
+            try {
+                // 尝试将第一部分解析为时间戳
+                std::string timestampStr = line.substr(0, spacePos);
+                time_t timestamp = std::stoll(timestampStr);
+                
+                // 如果成功，创建带时间戳的历史条目
+                HistoryEntry entry;
+                entry.index = nextIndex_++;
+                entry.timestamp = timestamp;
+                entry.command = line.substr(spacePos + 1);
+                history_.push_back(entry);
+            } catch (const std::exception& e) {
+                // 如果解析时间戳失败，将整行视为命令
+                DebugLog::logCommand("警告: 解析历史记录行失败: " + line + " (" + e.what() + ")");
+                DebugLog::logCommand("尝试将整行作为命令添加到历史记录");
+                
+                HistoryEntry entry;
+                entry.index = nextIndex_++;
+                entry.timestamp = std::time(nullptr);  // 使用当前时间作为时间戳
+                entry.command = line;
+                history_.push_back(entry);
+            }
+        } else {
+            // 如果没有空格，将整行视为命令
             HistoryEntry entry;
             entry.index = nextIndex_++;
-            entry.timestamp = std::stoll(line.substr(0, spacePos));
-            entry.command = line.substr(spacePos + 1);
+            entry.timestamp = std::time(nullptr);  // 使用当前时间作为时间戳
+            entry.command = line;
             history_.push_back(entry);
         }
     }
@@ -106,13 +137,21 @@ bool History::loadFromFile(const std::string& filename) {
 }
 
 bool History::saveToFile(const std::string& filename) const {
-    std::ofstream file(filename);
+    // 以截断模式打开文件，确保文件为空
+    std::ofstream file(filename, std::ios::out | std::ios::trunc);
     if (!file) {
         return false;
     }
     
     for (const auto& entry : history_) {
-        file << entry.timestamp << ' ' << entry.command << '\n';
+        // 确保时间戳是有效的
+        time_t timestamp = entry.timestamp;
+        if (timestamp <= 0) {
+            timestamp = std::time(nullptr);  // 如果时间戳无效，使用当前时间
+        }
+        
+        // 保存格式：时间戳 命令
+        file << timestamp << ' ' << entry.command << '\n';
     }
     
     return file.good();

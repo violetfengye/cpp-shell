@@ -12,12 +12,14 @@
 #include <fcntl.h>
 #include <mutex>
 #include <cstring>
+#include <cerrno>
 #include <map>
 #include <ctime>
 #include <unordered_set>
 #include "job/job_control.h"
 #include "core/shell.h"
 #include "utils/error.h"
+#include "../src/core/debug.h"
 
 namespace dash
 {
@@ -284,8 +286,10 @@ namespace dash
     // JobControl 实现
 
     JobControl::JobControl(Shell *shell)
-        : shell_(shell), next_job_id_(1), enabled_(false), terminal_fd_(-1), shell_pgid_(-1)
+        : shell_(shell), next_job_id_(1), enabled_(false), terminal_fd_(-1), shell_pgid_(0), shell_pid_(0)
     {
+        // 构造函数中不执行初始化，等待显式调用initialize
+        memset(&shell_tmodes, 0, sizeof(shell_tmodes));
     }
 
     JobControl::~JobControl()
@@ -294,64 +298,92 @@ namespace dash
         jobs_.clear();
     }
 
-    void JobControl::initialize()
+    bool JobControl::initialize()
     {
-        std::cout << "JobControl初始化开始..." << std::endl;
-        
-        // 确保作业列表为空
-        if (!jobs_.empty()) {
-            std::cout << "警告: 作业列表非空，清除旧作业" << std::endl;
-            jobs_.clear();
+        // 已经初始化过，直接返回
+        if (enabled_) {
+            return true;
         }
         
-        next_job_id_ = 1; // 确保作业ID从1开始
+        // 初始化作业控制
+        DebugLog::logCommand("JobControl初始化开始...");
         
-        // 打开终端设备
-        terminal_fd_ = open("/dev/tty", O_RDWR);
-        if (terminal_fd_ < 0)
-        {
-            std::cerr << "无法打开终端设备: " << strerror(errno) << std::endl;
-            // 无法打开终端，禁用作业控制
-            enabled_ = false;
-            return;
+        // 检查是否是交互式shell
+        if (!shell_->isInteractive()) {
+            // 非交互式shell不需要作业控制
+            return false;
         }
-
-        // 获取 shell 的进程组 ID
-        shell_pgid_ = getpgrp();
-        std::cout << "Shell进程组ID: " << shell_pgid_ << std::endl;
-
-        // 将 shell 进程组放入前台
-        if (tcsetpgrp(terminal_fd_, shell_pgid_) < 0)
-        {
-            std::cerr << "tcsetpgrp失败: " << strerror(errno) << std::endl;
+        
+        // 获取shell的进程ID和进程组ID
+        shell_pid_ = getpid();
+        
+        // 检查shell是否已经是进程组组长
+        shell_pgid_ = getpgid(shell_pid_);
+        if (shell_pgid_ == -1) {
+            perror("getpgid");
+            return false;
+        }
+        
+        // 如果shell不是进程组组长，则创建新的进程组
+        if (shell_pgid_ != shell_pid_) {
+            if (setpgid(shell_pid_, shell_pid_) < 0) {
+                perror("setpgid");
+                return false;
+            }
+            shell_pgid_ = shell_pid_;
+        }
+        
+        // 输出shell进程组ID
+        DebugLog::logCommand("Shell进程组ID: " + std::to_string(shell_pgid_));
+        
+        // 获取终端控制权
+        int terminal_fd = STDIN_FILENO;
+        if (tcsetpgrp(terminal_fd, shell_pgid_) < 0) {
             perror("tcsetpgrp");
-            close(terminal_fd_);
-            enabled_ = false;
-            return;
+            return false;
         }
-
-        // 忽略作业控制信号
-        signal(SIGINT, SIG_IGN);
-        signal(SIGQUIT, SIG_IGN);
-        signal(SIGTSTP, SIG_IGN);
-        signal(SIGTTIN, SIG_IGN);
-        signal(SIGTTOU, SIG_IGN);
-
+        
+        // 保存终端属性
+        if (tcgetattr(terminal_fd, &shell_tmodes) < 0) {
+            perror("tcgetattr");
+            return false;
+        }
+        
+        // 设置作业控制信号处理
+        setupSignalHandlers();
+        
+        // 设置作业控制已启用
         enabled_ = true;
-        std::cout << "JobControl初始化完成，enabled_=" << enabled_ << std::endl;
+        
+        // 完成初始化
+        DebugLog::logCommand("JobControl初始化完成，enabled_=" + std::to_string(enabled_));
+        
+        return true;
     }
 
-    void JobControl::enableJobControl()
+    bool JobControl::enableJobControl()
     {
-        // 添加调试输出
-        std::cout << "启用作业控制，当前状态: " << (enabled_ ? "已启用" : "未启用") << std::endl;
-        
-        if (!enabled_)
-        {
-            std::cout << "初始化作业控制系统" << std::endl;
-            initialize();
-            std::cout << "作业控制初始化完成，状态: " << (enabled_ ? "成功" : "失败") << std::endl;
+        // 如果已经启用，直接返回
+        if (enabled_) {
+            return true;
         }
+        
+        // 输出当前状态
+        DebugLog::logCommand("启用作业控制，当前状态: " + std::string(enabled_ ? "已启用" : "未启用"));
+        
+        // 初始化作业控制
+        DebugLog::logCommand("初始化作业控制系统");
+        
+        // 调用初始化函数
+        bool result = initialize();
+        
+        if (result) {
+            DebugLog::logCommand("作业控制初始化完成，状态: 成功");
+        } else {
+            DebugLog::logCommand("作业控制初始化失败");
+        }
+        
+        return result;
     }
 
     Job *JobControl::findJob(int id) const
@@ -558,100 +590,73 @@ namespace dash
 
     void JobControl::showJobs(bool changed_only, bool show_running, bool show_stopped, bool show_pids)
     {
-        // 确保状态最新 - 强制更新每个作业
-        for (auto &pair : jobs_)
-        {
-            Job *job = pair.second.get();
-            job->updateStatus();
-            
-            // 强制已完成作业设置为已通知
-            if (job->getStatus() == JobStatus::DONE) {
-                job->setNotified(true);
-            }
-        }
-
-        // 立即尝试清理已完成的作业
-        cleanupJobs();
-        
-        // 重新计数有效作业数量
-        int running_count = 0, stopped_count = 0, done_count = 0;
-        for (const auto &pair : jobs_)
-        {
-            switch (pair.second->getStatus()) {
-                case JobStatus::RUNNING: running_count++; break;
-                case JobStatus::STOPPED: stopped_count++; break;
-                case JobStatus::DONE: done_count++; break;
-            }
+        // 如果作业控制未启用，直接返回
+        if (!enabled_) {
+            std::cout << "作业控制未启用" << std::endl;
+            return;
         }
         
-        // 只有在有作业时才显示状态
-        if (!jobs_.empty()) {
-            std::cout << "作业状态: 运行中=" << running_count 
-                    << ", 已停止=" << stopped_count 
-                    << ", 已完成=" << done_count 
-                    << ", 总数=" << jobs_.size() << std::endl;
-        }
-
-        // 显示活动作业状态
-        bool jobs_found = false;
-        for (auto &pair : jobs_)
-        {
-            Job *job = pair.second.get();
+        // 更新所有作业状态
+        updateStatus(0);
+        
+        // 显示作业信息
+        bool jobs_displayed = false;
+        
+        for (const auto& pair : jobs_) {
+            const auto& job = pair.second;
+            JobStatus status = job->getStatus();
             
-            // 直接跳过已完成的作业 - 强制立即清理策略
-            if (job->getStatus() == JobStatus::DONE)
-            {
+            // 根据参数过滤作业
+            if ((changed_only && job->isNotified()) ||
+                (status == JobStatus::RUNNING && !show_running) ||
+                (status == JobStatus::STOPPED && !show_stopped) ||
+                (status == JobStatus::DONE)) {
                 continue;
             }
             
-            // 根据作业状态和显示选项决定是否显示
-            if ((job->getStatus() == JobStatus::RUNNING && !show_running) ||
-                (job->getStatus() == JobStatus::STOPPED && !show_stopped))
-            {
-                continue;
+            // 显示作业信息
+            std::cout << "[" << pair.first << "] ";
+            
+            // 显示状态
+            switch (status) {
+                case JobStatus::RUNNING:
+                    std::cout << "Running";
+                    break;
+                case JobStatus::STOPPED:
+                    std::cout << "Stopped";
+                    break;
+                case JobStatus::DONE:
+                    std::cout << "Done";
+                    break;
             }
             
-            jobs_found = true;
-
-            // 显示作业状态
-            std::cout << "[" << job->getId() << "] ";
-
-            // 显示作业状态
-            switch (job->getStatus())
-            {
-            case JobStatus::RUNNING:
-                std::cout << "Running";
-                break;
-            case JobStatus::STOPPED:
-                std::cout << "Stopped";
-                break;
-            case JobStatus::DONE:
-                std::cout << "Done";
-                break;
-            }
-
-            // 如果需要显示进程ID
-            if (show_pids)
-            {
+            // 显示进程ID
+            if (show_pids) {
                 std::cout << " (";
                 bool first = true;
-                for (const auto &process : job->getProcesses())
-                {
-                    if (!first)
-                    {
+                for (const auto& proc : job->getProcesses()) {
+                    if (!first) {
                         std::cout << " ";
                     }
-                    std::cout << process->getPid();
+                    std::cout << proc->getPid();
                     first = false;
                 }
                 std::cout << ")";
             }
-
+            
+            // 显示命令
             std::cout << "\t" << job->getCommand() << std::endl;
+            
+            // 设置已通知标志
+            job->setNotified(true);
+            
+            jobs_displayed = true;
         }
         
-        // 再次尝试清理已完成的作业
-        cleanupJobs();
+        // 如果没有作业显示，输出提示信息
+        if (!jobs_displayed) {
+            std::cout << "没有活动的作业" << std::endl;
+        }
     }
 
     bool JobControl::hasStoppedJobs() const
@@ -742,6 +747,16 @@ namespace dash
         }
         
         return false;
+    }
+
+    void JobControl::setupSignalHandlers()
+    {
+        // 忽略作业控制信号
+        signal(SIGINT, SIG_IGN);
+        signal(SIGQUIT, SIG_IGN);
+        signal(SIGTSTP, SIG_IGN);
+        signal(SIGTTIN, SIG_IGN);
+        signal(SIGTTOU, SIG_IGN);
     }
 
 } // namespace dash

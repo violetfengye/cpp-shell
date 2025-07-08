@@ -17,6 +17,8 @@
 #include "variable/variable_manager.h"
 #include "job/job_control.h"
 #include "utils/error.h"
+#include "utils/history.h"
+#include "../core/debug.h"
 
 // ================================= 重要提示 =================================
 // 请确保您已经在 "shell.h" 的 Shell 类定义中添加了以下这行代码：
@@ -57,6 +59,7 @@ namespace dash
           parser_(std::make_unique<Parser>(this)),
           executor_(std::make_unique<Executor>(this)),
           job_control_(std::make_unique<JobControl>(this)),
+          history_(std::make_unique<History>(*this)),
           interactive_(false),
           exit_requested_(false),
           exit_status_(0)
@@ -198,6 +201,16 @@ namespace dash
         sigemptyset(&block_mask);
         sigaddset(&block_mask, SIGCHLD);
 
+        // 尝试加载历史记录
+        std::string home_dir = getenv("HOME") ? getenv("HOME") : ".";
+        std::string history_file = home_dir + "/.dash_history";
+        try {
+            history_->loadFromFile(history_file);
+        } catch (const std::exception& e) {
+            std::cerr << "警告: 加载历史记录文件失败: " << e.what() << std::endl;
+            std::cerr << "将创建新的历史记录文件" << std::endl;
+        }
+
         while (!exit_requested_)
         {
             // 在循环开始，先安全地处理所有挂起的信号事件
@@ -250,6 +263,13 @@ namespace dash
 
                 // 检查是否是文件结尾 (Ctrl+D)
                 if (input_->isEOF()) {
+                    // 在退出前保存历史记录
+                    try {
+                        history_->saveToFile(history_file);
+                    } catch (const std::exception& e) {
+                        std::cerr << "警告: 保存历史记录文件失败: " << e.what() << std::endl;
+                    }
+                    
                     // 在检查作业前，先更新所有作业状态
                     if (job_control_ && job_control_->isEnabled()) {
                         job_control_->updateStatus(0);
@@ -287,6 +307,12 @@ namespace dash
                     continue;
                 }
 
+                // 获取命令文本并添加到历史记录
+                std::string cmdText = parser_->getLastCommand();
+                if (!cmdText.empty()) {
+                    history_->addCommand(cmdText);
+                }
+
                 // 3. 执行命令
                 // 在执行期间阻塞SIGCHLD，防止在操作作业列表时出现竞态条件
                 sigprocmask(SIG_BLOCK, &block_mask, &orig_mask);
@@ -302,6 +328,9 @@ namespace dash
                 // 仅当不是由exit命令触发的退出异常时才显示错误信息
                 if (e.getType() != ExceptionType::EXIT) {
                     std::cerr << e.getTypeString() << ": " << e.what() << std::endl;
+                } else {
+                    // 对于EXIT类型的异常，使用DebugLog输出
+                    dash::DebugLog::logCommand(e.getTypeString() + ": " + e.what());
                 }
                 // 确保在异常情况下恢复信号掩码
                 sigprocmask(SIG_SETMASK, &orig_mask, nullptr);
@@ -323,6 +352,13 @@ namespace dash
                     job_control_->cleanupJobs();
                 }
             }
+        }
+
+        // 在退出前保存历史记录
+        try {
+            history_->saveToFile(history_file);
+        } catch (const std::exception& e) {
+            std::cerr << "警告: 保存历史记录文件失败: " << e.what() << std::endl;
         }
 
         // 最终检查，确保没有后台作业时才真正退出
@@ -361,7 +397,7 @@ namespace dash
             }
         }
         
-        std::cout << "Shell退出" << std::endl;
+        dash::DebugLog::logCommand("Shell退出");
         return exit_status_;
     }
 
@@ -413,7 +449,13 @@ namespace dash
         }
         catch (const ShellException &e)
         {
-            std::cerr << e.getTypeString() << ": " << e.what() << std::endl;
+            // 仅当不是由exit命令触发的退出异常时才显示错误信息
+            if (e.getType() != ExceptionType::EXIT) {
+                std::cerr << e.getTypeString() << ": " << e.what() << std::endl;
+            } else {
+                // 对于EXIT类型的异常，使用DebugLog输出
+                dash::DebugLog::logCommand(e.getTypeString() + ": " + e.what());
+            }
             return 1;
         }
         catch (const std::exception &e)
@@ -529,6 +571,12 @@ namespace dash
     {
         std::unique_ptr<Shell> shell = std::make_unique<Shell>();
         return shell->run(argc, argv);
+    }
+
+    // 添加getHistory方法的实现
+    History* Shell::getHistory() const 
+    {
+        return history_.get();
     }
 
 } // namespace dash

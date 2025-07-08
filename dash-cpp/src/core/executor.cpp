@@ -5,17 +5,16 @@
 
 #include <iostream>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 #include <cstring>
-#include <algorithm>
+#include <cerrno>
 #include "core/executor.h"
 #include "core/shell.h"
-#include "core/node.h"
-#include "job/job_control.h"
 #include "utils/error.h"
 #include "variable/variable_manager.h"
+#include "job/job_control.h"
+#include "builtins/builtin_command.h"
 #include "builtins/cd_command.h"
 #include "builtins/echo_command.h"
 #include "builtins/exit_command.h"
@@ -23,6 +22,11 @@
 #include "builtins/jobs_command.h"
 #include "builtins/fg_command.h"
 #include "builtins/bg_command.h"
+#include "builtins/history_command.h"
+#include "builtins/help_command.h"
+#include "builtins/debug_command.h"
+#include "builtins/source_command.h"
+#include "../core/debug.h"
 
 namespace dash
 {
@@ -91,13 +95,13 @@ namespace dash
         }
         catch (const ShellException &e)
         {
-            std::cerr << e.getTypeString() << ": " << e.what() << std::endl;
+            DebugLog::logCommand(e.getTypeString() + ": " + e.what());
             last_status_ = 1;
             return 1;
         }
         catch (const std::exception &e)
         {
-            std::cerr << "Error: " << e.what() << std::endl;
+            DebugLog::logCommand("Error: " + std::string(e.what()));
             last_status_ = 1;
             return 1;
         }
@@ -830,6 +834,10 @@ namespace dash
         auto jobs_cmd = std::make_shared<JobsCommand>(shell_);
         auto fg_cmd = std::make_shared<FgCommand>(shell_);
         auto bg_cmd = std::make_shared<BgCommand>(shell_);
+        auto history_cmd = std::make_shared<HistoryCommand>(shell_);
+        auto help_cmd = std::make_shared<HelpCommand>(shell_);
+        auto debug_cmd = std::make_shared<DebugCommand>(shell_);
+        auto source_cmd = std::make_shared<SourceCommand>(shell_);
 
         // 保存内置命令对象
         builtin_commands_.push_back(cd_cmd);
@@ -839,6 +847,10 @@ namespace dash
         builtin_commands_.push_back(jobs_cmd);
         builtin_commands_.push_back(fg_cmd);
         builtin_commands_.push_back(bg_cmd);
+        builtin_commands_.push_back(history_cmd);
+        builtin_commands_.push_back(help_cmd);
+        builtin_commands_.push_back(debug_cmd);
+        builtin_commands_.push_back(source_cmd);
 
         // 注册内置命令
         builtins_[cd_cmd->getName()] = [cd_cmd](const std::vector<std::string> &args) -> int
@@ -874,6 +886,26 @@ namespace dash
         builtins_[bg_cmd->getName()] = [bg_cmd](const std::vector<std::string> &args) -> int
         {
             return bg_cmd->execute(args);
+        };
+
+        builtins_[history_cmd->getName()] = [history_cmd](const std::vector<std::string> &args) -> int
+        {
+            return history_cmd->execute(args);
+        };
+
+        builtins_[help_cmd->getName()] = [help_cmd](const std::vector<std::string> &args) -> int
+        {
+            return help_cmd->execute(args);
+        };
+
+        builtins_[debug_cmd->getName()] = [debug_cmd](const std::vector<std::string> &args) -> int
+        {
+            return debug_cmd->execute(args);
+        };
+
+        builtins_[source_cmd->getName()] = [source_cmd](const std::vector<std::string> &args) -> int
+        {
+            return source_cmd->execute(args);
         };
 
         // TODO: 添加更多内置命令
