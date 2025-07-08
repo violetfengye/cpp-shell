@@ -18,7 +18,7 @@ Node::Node(NodeType type)
 
 // CommandNode 实现
 CommandNode::CommandNode()
-    : Node(NodeType::COMMAND)
+    : Node(NodeType::COMMAND), background_(false)
 {
 }
 

@@ -255,6 +255,7 @@ namespace dash
         bool enabled_;
         int terminal_fd_;
         pid_t shell_pgid_;
+        int current_job_id_; // 当前作业ID
 
         /**
          * @brief 初始化作业控制
@@ -268,6 +269,13 @@ namespace dash
          * @return Job* 作业指针，如果找不到则返回 nullptr
          */
         Job *findJob(int id) const;
+
+        /**
+         * @brief 查找当前作业
+         * 
+         * @return Job* 当前作业指针，如果没有则返回 nullptr
+         */
+        Job *findCurrentJob() const;
 
     public:
         /**
@@ -398,6 +406,20 @@ namespace dash
          * @return false 没有活动作业
          */
         bool hasActiveJobs() const;
+
+        /**
+         * @brief 获取当前作业ID
+         * 
+         * @return int 当前作业ID，如果没有则返回-1
+         */
+        int getCurrentJobId() const { return current_job_id_; }
+        
+        /**
+         * @brief 设置当前作业ID
+         * 
+         * @param job_id 要设置为当前作业的ID
+         */
+        void setCurrentJobId(int job_id) { current_job_id_ = job_id; }
     };
 
 } // namespace dash

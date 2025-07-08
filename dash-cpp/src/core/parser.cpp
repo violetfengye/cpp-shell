@@ -187,8 +187,14 @@ namespace dash
             // 如果是简单命令，直接设置后台标志
             if (command->getType() == NodeType::COMMAND)
             {
-                // 创建一个只有一个命令的管道节点，并设置后台标志
-                return std::make_unique<PipeNode>(std::move(command), nullptr, background);
+                static_cast<CommandNode*>(command.get())->setBackground(true);
+                return command;
+            }
+            else if (command->getType() == NodeType::PIPE)
+            {
+                // 为管道设置后台标志
+                static_cast<PipeNode*>(command.get())->setBackground(true);
+                return command;
             }
         }
 

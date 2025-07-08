@@ -21,6 +21,7 @@ namespace dash
     class VariableManager;
     class JobControl;
     class PipeNode;
+    class BGJobAdapter; // 添加适配器的前向声明
 
     /**
      * @brief Shell 类
@@ -35,6 +36,7 @@ namespace dash
         std::unique_ptr<Parser> parser_;
         std::unique_ptr<Executor> executor_;
         std::unique_ptr<JobControl> job_control_;
+        std::unique_ptr<BGJobAdapter> bg_job_adapter_; // 添加后台任务控制适配器
 
         bool interactive_;
         bool exit_requested_;
@@ -89,13 +91,10 @@ namespace dash
          * @return int 执行结果状态码
          */
         int execute_pipeline(const PipeNode *node);
-        
-
 
     public:
         // 信号处理相关
         static volatile sig_atomic_t received_sigchld;
-        // --- 修改 1: 添加 received_sigint 的静态成员声明 ---
         static volatile sig_atomic_t received_sigint;
         
         /**
@@ -116,9 +115,6 @@ namespace dash
          * @return int 退出状态码
          */
         int run(int argc, char *argv[]);
-
-        // --- 修改 2: 移除不再使用的 handleSignal 方法声明 ---
-        // void handleSignal(int signo);
 
         /**
          * @brief 退出 shell
@@ -163,6 +159,13 @@ namespace dash
         JobControl *getJobControl() const;
 
         /**
+         * @brief 获取后台任务控制适配器
+         *
+         * @return BGJobAdapter* 后台任务控制适配器指针
+         */
+        BGJobAdapter *getBGJobAdapter() const;
+
+        /**
          * @brief 是否是交互式模式
          *
          * @return true 是交互式模式
@@ -176,6 +179,15 @@ namespace dash
          * @return int 退出状态码
          */
         int getExitStatus() const;
+        
+        /**
+         * @brief 执行后台命令
+         *
+         * @param command 命令字符串
+         * @param args 参数数组
+         * @return int 执行结果状态码
+         */
+        int executeBackground(const std::string &command, std::vector<std::string> &args);
     };
 
 } // namespace dash

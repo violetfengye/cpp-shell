@@ -16,6 +16,7 @@
 #include "core/executor.h"
 #include "variable/variable_manager.h"
 #include "job/job_control.h"
+#include "job/bg_job_adapter.h" // 添加适配器头文件
 #include "utils/error.h"
 
 // ================================= 重要提示 =================================
@@ -61,6 +62,9 @@ namespace dash
     {
         // 创建输入处理器
         input_ = std::make_unique<InputHandler>(this);
+        
+        // 创建后台任务控制适配器
+        bg_job_adapter_ = std::make_unique<BGJobAdapter>(this, job_control_.get());
         
         // 设置全局 Shell 实例指针
         g_shell = this;
@@ -367,6 +371,118 @@ namespace dash
         std::vector<const Node*> commands;
         collect_pipe_commands(node, commands);
 
+        // 检查最后一个命令是否以 & 结尾，表示后台运行
+        bool background = false;
+        const auto *last_command = dynamic_cast<const CommandNode *>(commands.back());
+        if (last_command && !last_command->getArgs().empty()) {
+            const std::string &last_arg = last_command->getArgs().back();
+            if (last_arg == "&") {
+                background = true;
+                // 创建没有 & 的新参数数组
+                std::vector<std::string> new_args = last_command->getArgs();
+                new_args.pop_back(); // 移除 &
+                
+                // 如果是后台任务，使用后台任务控制系统
+                if (bg_job_adapter_->initialize()) {
+                    // 准备命令字符串
+                    std::string cmd_str;
+                    for (size_t i = 0; i < commands.size(); ++i) {
+                        const auto *cmd = dynamic_cast<const CommandNode *>(commands[i]);
+                        if (cmd) {
+                            if (i > 0) cmd_str += " | ";
+                            for (size_t j = 0; j < cmd->getArgs().size(); ++j) {
+                                if (j > 0) cmd_str += " ";
+                                // 跳过最后一个命令的 & 参数
+                                if (!(i == commands.size() - 1 && j == cmd->getArgs().size() - 1 && cmd->getArgs()[j] == "&")) {
+                                    cmd_str += cmd->getArgs()[j];
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 创建作业
+                    struct job *jp = bg_job_adapter_->createJob(cmd_str, commands.size());
+                    if (!jp) {
+                        std::cerr << "无法创建后台作业\n";
+                        return 1;
+                    }
+                    
+                    // 创建管道
+                    int in_fd = 0;
+                    std::vector<pid_t> pids;
+                    
+                    for (size_t i = 0; i < commands.size(); ++i) {
+                        int pipe_fds[2];
+                        if (i < commands.size() - 1) {
+                            if (pipe(pipe_fds) < 0) {
+                                perror("pipe");
+                                return -1;
+                            }
+                        }
+                        
+                        // 获取命令参数
+                        const auto *command_node = dynamic_cast<const CommandNode *>(commands[i]);
+                        if (!command_node) {
+                            continue;
+                        }
+                        
+                        // 准备参数数组
+                        std::vector<std::string> cmd_args = command_node->getArgs();
+                        // 移除最后一个命令的 & 参数
+                        if (i == commands.size() - 1 && background && 
+                            !cmd_args.empty() && cmd_args.back() == "&") {
+                            cmd_args.pop_back();
+                        }
+                        
+                        // 转换为C风格参数数组
+                        std::vector<char*> argv;
+                        for (const auto &arg : cmd_args) {
+                            argv.push_back(const_cast<char*>(arg.c_str()));
+                        }
+                        argv.push_back(nullptr);
+                        
+                        // 使用适配器创建后台任务
+                        pid_t pid = forkparent_bg(jp, i == 0 ? FORK_BG : FORK_NOJOB);
+                        
+                        if (pid < 0) {
+                            perror("fork");
+                            return -1;
+                        } else if (pid == 0) { // 子进程
+                            // 设置管道
+                            forkchild_bg(jp, i == 0 ? FORK_BG : FORK_NOJOB);
+                            
+                            if (i > 0) {
+                                dup2(in_fd, 0);
+                                close(in_fd);
+                            }
+                            if (i < commands.size() - 1) {
+                                close(pipe_fds[0]);
+                                dup2(pipe_fds[1], 1);
+                                close(pipe_fds[1]);
+                            }
+                            
+                            // 执行命令
+                            execvp(argv[0], argv.data());
+                            perror(argv[0]);
+                            _exit(127);
+                        }
+                        
+                        // 父进程处理管道
+                        if (i > 0) {
+                            close(in_fd);
+                        }
+                        if (i < commands.size() - 1) {
+                            in_fd = pipe_fds[0];
+                            close(pipe_fds[1]);
+                        }
+                    }
+                    
+                    return 0;
+                }
+            }
+        }
+        
+        // 如果不是后台任务或初始化失败，使用原有方式执行
         int in_fd = 0;
         std::vector<pid_t> pids;
 
@@ -398,7 +514,13 @@ namespace dash
 
                 const auto *command_node = dynamic_cast<const CommandNode *>(commands[i]);
                 if (command_node) {
-                    executor_->exec_in_child(command_node->getArgs()[0], command_node->getArgs());
+                    std::vector<std::string> cmd_args = command_node->getArgs();
+                    // 移除最后一个命令的 & 参数
+                    if (i == commands.size() - 1 && background && 
+                        !cmd_args.empty() && cmd_args.back() == "&") {
+                        cmd_args.pop_back();
+                    }
+                    executor_->exec_in_child(cmd_args[0], cmd_args);
                 } else {
                     exit(EXIT_FAILURE);
                 }
@@ -415,6 +537,13 @@ namespace dash
             }
         }
 
+        // 如果是后台任务，不等待子进程
+        if (background) {
+            std::cout << "[1] " << pids.back() << std::endl;
+            return 0;
+        }
+
+        // 否则等待所有子进程完成
         for (pid_t pid : pids) {
             int child_status;
             waitpid(pid, &child_status, 0);
@@ -440,6 +569,50 @@ namespace dash
     {
         std::unique_ptr<Shell> shell = std::make_unique<Shell>();
         return shell->run(argc, argv);
+    }
+
+    // 添加executeBackground方法的实现
+    int Shell::executeBackground(const std::string &command, std::vector<std::string> &args)
+    {
+        // 初始化后台任务控制适配器（如果需要）
+        if (!bg_job_adapter_->initialize()) {
+            std::cerr << "无法初始化后台任务控制\n";
+            return 1;
+        }
+        
+        // 创建参数数组
+        std::vector<char*> argv;
+        for (const auto &arg : args) {
+            argv.push_back(const_cast<char*>(arg.c_str()));
+        }
+        argv.push_back(nullptr);
+        
+        // 创建命令字符串
+        std::string cmd_str = command;
+        for (size_t i = 1; i < args.size(); ++i) {
+            cmd_str += " " + args[i];
+        }
+        
+        // 创建作业
+        struct job *jp = bg_job_adapter_->createJob(cmd_str, 1);
+        if (!jp) {
+            std::cerr << "无法创建后台作业\n";
+            return 1;
+        }
+        
+        // 在后台运行命令
+        int result = bg_job_adapter_->runInBackground(jp, command, argv.data());
+        if (result != 0) {
+            return 1;
+        }
+        
+        return 0;
+    }
+    
+    // 添加getter方法实现
+    BGJobAdapter *Shell::getBGJobAdapter() const
+    {
+        return bg_job_adapter_.get();
     }
 
 } // namespace dash

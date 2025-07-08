@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(dash-cpp VERSION 0.1.0 LANGUAGES CXX)
+project(dash-cpp VERSION 0.1.0 LANGUAGES C CXX)
 
 # 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 17)
@@ -34,6 +34,7 @@ endif()
 # 源文件
 file(GLOB_RECURSE SOURCES 
     "src/*.cpp"
+    "src/*.c"
 )
 
 # 头文件

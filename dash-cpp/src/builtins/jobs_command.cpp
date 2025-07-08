@@ -62,6 +62,9 @@ namespace dash
             list_running = list_stopped = true;
         }
 
+        // 在显示作业前强制更新所有作业的状态
+        shell_->getJobControl()->updateStatus(0);
+
         // 显示作业
         shell_->getJobControl()->showJobs(changed_only, list_running, list_stopped, list_pids);
 

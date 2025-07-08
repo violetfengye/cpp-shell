@@ -88,12 +88,28 @@ namespace dash
         std::vector<std::string> args_;
         std::vector<std::string> assignments_;
         std::vector<Redirection> redirections_;
+        bool background_; // 是否在后台运行
 
     public:
         /**
          * @brief 构造函数
          */
         CommandNode();
+        
+        /**
+         * @brief 设置后台运行标志
+         *
+         * @param background 是否在后台运行
+         */
+        void setBackground(bool background) { background_ = background; }
+        
+        /**
+         * @brief 是否在后台运行
+         *
+         * @return true 在后台运行
+         * @return false 在前台运行
+         */
+        bool isBackground() const { return background_; }
 
         /**
          * @brief 添加参数
@@ -186,6 +202,13 @@ namespace dash
          * @return false 在前台运行
          */
         bool isBackground() const { return background_; }
+        
+        /**
+         * @brief 设置后台运行标志
+         *
+         * @param background 是否在后台运行
+         */
+        void setBackground(bool background) { background_ = background; }
 
         /**
          * @brief 打印节点

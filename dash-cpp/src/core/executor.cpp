@@ -105,50 +105,17 @@ namespace dash
 
     int Executor::executeCommand(const CommandNode *command)
     {
-        if (command->getArgs().empty())
+        // 获取命令参数
+        std::vector<std::string> args = command->getArgs();
+        if (args.empty())
         {
-            // 如果只有变量赋值，则设置变量
-            for (const auto &assignment : command->getAssignments())
-            {
-                size_t pos = assignment.find('=');
-                if (pos != std::string::npos)
-                {
-                    std::string name = assignment.substr(0, pos);
-                    std::string value = assignment.substr(pos + 1);
-                    // 对赋值的值进行变量展开
-                    value = shell_->getVariableManager()->expand(value);
-                    shell_->getVariableManager()->set(name, value);
-                }
-            }
             return 0;
         }
 
-        // 获取命令名和参数
-        std::vector<std::string> args = command->getArgs();
-        
-        // 对所有参数进行变量展开
-        for (auto &arg : args)
-        {
-            arg = shell_->getVariableManager()->expand(arg);
-        }
-        
+        // 获取命令名
         std::string cmd_name = args[0];
+        args.erase(args.begin());
 
-        // 处理变量赋值
-        for (const auto &assignment : command->getAssignments())
-        {
-            size_t pos = assignment.find('=');
-            if (pos != std::string::npos)
-            {
-                std::string name = assignment.substr(0, pos);
-                std::string value = assignment.substr(pos + 1);
-                // 对赋值的值进行变量展开
-                value = shell_->getVariableManager()->expand(value);
-                shell_->getVariableManager()->set(name, value, Variable::VAR_NONE); // 临时变量
-            }
-        }
-
-        // 检查是否是内置命令
         if (isBuiltin(cmd_name))
         {
             // 设置重定向
@@ -169,8 +136,17 @@ namespace dash
             return status;
         }
 
+        // 检查是否后台运行 - 首先检查命令节点的background标志
+        bool background = command->isBackground();
+        
+        // 同时检查参数中是否有 &
+        if (!args.empty() && args.back() == "&") {
+            background = true;
+            args.pop_back(); // 移除 &
+        }
+        
         // 执行外部命令
-        return executeExternalCommand(cmd_name, args, command->getRedirections(), false);
+        return executeExternalCommand(cmd_name, args, command->getRedirections(), background);
     }
 
     int Executor::executePipe(const PipeNode *pipe_node)
@@ -289,7 +265,7 @@ namespace dash
             }
             else if (left_pid == 0)
             {
-                // 子进程
+                // 左侧命令的子进程
                 // 关闭读取端
                 close(pipefd[0]);
 
@@ -310,7 +286,7 @@ namespace dash
             }
             else if (right_pid == 0)
             {
-                // 子进程
+                // 右侧命令的子进程
                 // 关闭写入端
                 close(pipefd[1]);
 
@@ -327,15 +303,13 @@ namespace dash
             close(pipefd[1]);
 
             // 等待左侧命令完成
-            int left_status;
-            waitpid(left_pid, &left_status, 0);
+            int status;
+            waitpid(left_pid, &status, 0);
 
             // 等待右侧命令完成
-            int right_status;
-            waitpid(right_pid, &right_status, 0);
+            waitpid(right_pid, &status, 0);
 
-            // 返回右侧命令的状态码
-            return WEXITSTATUS(right_status);
+            return WEXITSTATUS(status);
         }
         else
         {
@@ -675,6 +649,15 @@ namespace dash
     int Executor::executeExternalCommand(const std::string &command, const std::vector<std::string> &args,
                                          const std::vector<Redirection> &redirections, bool background)
     {
+        // 获取Shell实例和后台任务适配器
+        Shell* shell = getShell();
+        if (background && shell) {
+            // 使用后台任务适配器来执行后台任务
+            std::vector<std::string> bg_args = args;
+            bg_args.insert(bg_args.begin(), command); // 添加命令名作为第一个参数
+            return shell->executeBackground(command, bg_args);
+        }
+
         // 创建子进程
         pid_t pid = fork();
 
@@ -685,7 +668,6 @@ namespace dash
         else if (pid == 0)
         {
             // 子进程
-
             // 设置重定向
             std::unordered_map<int, int> saved_fds;
             bool redirect_success = applyRedirections(redirections, saved_fds);
@@ -699,20 +681,10 @@ namespace dash
         }
 
         // 父进程
-        if (background)
-        {
-            // 后台运行，不等待子进程完成
-            std::cout << "[" << pid << "] " << command << std::endl;
-            return 0;
-        }
-        else
-        {
-            // 前台运行，等待子进程完成
-            int status;
-            waitpid(pid, &status, 0);
+        int status;
+        waitpid(pid, &status, 0);
 
-            return WEXITSTATUS(status);
-        }
+        return WEXITSTATUS(status);
     }
 
     bool Executor::isBuiltin(const std::string &command) const
