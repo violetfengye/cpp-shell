@@ -56,14 +56,13 @@ namespace dash
                     Transaction::addCommandString(line);
                     break;
                 case InputType::transaction:
-                    // 用输入提供一个中断
-                    line = shell_->getInput()->readLine(true);
+                    Transaction::transactionRun();
                     // 从事务处理器获取一行输入
                     line = Transaction::getCommandString();
+                    break;
                 default:
                     break;
                 }
-                //std::cout<<"a input"<<std::endl;
                 if (line.empty())
                 {
                     return nullptr; // EOF

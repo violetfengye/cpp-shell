@@ -9,6 +9,10 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+#include <curses.h>
+#include <map>
+#include <stdio.h>  
+#include <termios.h>  
 #include "../../include/utils/transaction.h"
 
 #define filePath "./etc/dash/transaction/"
@@ -16,6 +20,30 @@
 
 namespace dash
 {
+    // 读取一个字符
+    
+    char get1char(void)  
+    {  
+        struct termios stored_settings;  
+        struct termios new_settings;  
+        tcgetattr (0, &stored_settings);  
+        new_settings = stored_settings;  
+        new_settings.c_lflag &= (~ICANON);  
+        new_settings.c_cc[VTIME] = 0;  
+        new_settings.c_cc[VMIN] = 1;  
+        tcsetattr (0, TCSANOW, &new_settings);  
+    
+        int ret = 0;  
+        char c;  
+    
+        c = getchar();  
+        putchar('\b'); // 删除回显  
+    
+        //printf("input:  [%c]\n", c);  
+        tcsetattr (0, TCSANOW, &stored_settings); // 恢复终端参数  
+    
+        return c;   
+    }  
     // 读取文件夹中的所有文件，并将每行存储到 vector<string> 中
     std::vector<std::string> readLinesFromFile(std::string fileName) {
         std::vector<std::string> lines;
@@ -78,6 +106,7 @@ namespace dash
             Transaction::current_command_index = 0;
             setInputType(InputType::transaction); // 设置为事务开始
             std::cout<<"开始事务："<<transaction_name<<std::endl;
+            setAutoRun(false); // 设置为单步运行
         }else{
             std::cerr<< transaction_name <<"事务不存在"<<std::endl;
         }
@@ -155,15 +184,22 @@ namespace dash
 
     int Transaction::setInputType(InputType type){ type_ = type; return 1;}
     std::string Transaction::getCommandString() {
-        //待完善
         if (current_command_index < current_command_list_.size()) {
             if (current_command_index == current_command_list_.size() - 1) {
                 //事务结束
+                writeLinesToFile(current_command_list_, current_transaction_name_);
+                transaction_map_[current_transaction_name_]->command_list_ = current_command_list_;
                 setInputType(InputType::normal);
                 current_transaction_name_ = "";//必须重置
+                std::cout<<"事务结束，命令输出："<<std::endl;
             }
             return current_command_list_[current_command_index++];
         } else {
+            writeLinesToFile(current_command_list_, current_transaction_name_);
+            transaction_map_[current_transaction_name_]->command_list_ = current_command_list_;
+            setInputType(InputType::normal);
+            current_transaction_name_ = "";//必须重置
+            std::cout<<"事务结束"<<std::endl;
             return "";
         }
     };
@@ -174,4 +210,104 @@ namespace dash
             std::cout<<index++<<"\t"<<transaction.first<<"\t"<<transaction.second->command_list_.size()<<std::endl;
         }
     }
+    void Transaction::transactionInterrupt(){
+        Transaction::current_transaction_name_ = "";
+        Transaction::current_command_index = 0;
+        setInputType(InputType::normal);
+    }
+
+    int Transaction::transactionRun(bool is_first){
+        if(is_first)
+            std::cout<<std::endl;
+        std::cout<<"第 "<< current_command_index + 1<<" 条命令："<<Transaction::current_command_list_[current_command_index]<<std::endl;
+        // 建立一个读取一个字符的shell输入
+        // a add d delete m modify t to end q quit j jump b back
+        if(auto_run_){
+            return 0;
+        }
+        char c = get1char();
+        std::string command;
+        
+        switch (c)
+        {
+        case 'a':
+            printf("\033[%dA", 1);
+            printf("\033[K");
+            fflush(stdout);
+            std::cout<<"请输入命令："<<std::endl;
+            // 从标准输入读取一行命令
+            std::getline(std::cin, command);
+            current_command_list_.insert(current_command_list_.begin() + current_command_index, command);
+            break;
+        case 'b':
+            if(current_command_index > 0){
+                current_command_index--;
+                // ANSI转义序列：光标上移指定行数
+                printf("\033[%dA", 1);
+                printf("\033[K");
+                fflush(stdout);
+                return transactionRun(false);
+            }else{
+                std::cerr<<"已经是第一条命令"<<std::endl;
+                return transactionRun(false);
+            }
+            break;
+        case 'd':
+            if(current_command_index + 1 < Transaction::current_command_list_.size()){
+                current_command_list_.erase(current_command_list_.begin() + current_command_index);
+                printf("\033[%dA", 1);
+                printf("\033[K");
+                fflush(stdout);
+                return transactionRun(false);
+            }else{
+                std::cout<<"这是最后一条命令"<<std::endl;
+                //强制加一，跳过获取字符串
+                current_command_index++;
+                return 1;
+            }
+            
+            break;
+        case 'm':
+            fflush(stdout);
+            // 从标准输入读取一行命令
+            std::getline(std::cin, command);
+            // 修改当前命令
+            current_command_list_.erase(current_command_list_.begin() + current_command_index);
+            current_command_list_.insert(current_command_list_.begin() + current_command_index, command);
+            break;
+        case 'j':
+            if(current_command_index + 1 < Transaction::current_command_list_.size()){
+                current_command_index++;
+                // ANSI转义序列：光标上移指定行数
+                printf("\033[%dA", 1);
+                printf("\033[K");
+                fflush(stdout);
+                return transactionRun(false);
+            }else{
+                std::cout<<"已经最后一条命令"<<std::endl;
+                //强制加一，跳过获取字符串
+                current_command_index++;
+                return 1;
+            }
+            break;
+        case 't':
+            setAutoRun(true);
+            break;
+        case 'q':
+            Transaction::transactionInterrupt();
+            break;
+        default:
+            break;
+        }
+        return 0;
+    }
+
+    bool Transaction::auto_run_ = false;
+    void Transaction::setAutoRun(bool is_auto_run){
+        auto_run_ = is_auto_run;
+    }
+    bool Transaction::getAutoRun(){
+        return auto_run_;
+    }
+
 } // namespace dash

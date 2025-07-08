@@ -76,6 +76,12 @@ namespace dash
          * @brief 当前事务命令索引
          * */
         static int current_command_index;
+
+        /**
+         * @brief 是否自动执行
+         * */
+        static bool auto_run_;
+
     public:
         /**
          * @brief 构造函数
@@ -127,6 +133,12 @@ namespace dash
          * @param transaction_name 事务名
          * */
         static void transactionStart(const std::string& transaction_name) ;
+
+        /**
+         * @brief 中断当前事务
+         * 
+         * */
+        static void transactionInterrupt() ;
         
         /**
          * @brief 记录事务
@@ -152,7 +164,29 @@ namespace dash
          */
         static void outputTransactionInfo() ;
 
+        /**
+         * @brief 处理运行中的事务
+         * 
+         * @var is_first 是否是第一次运行
+         * 
+         * @return Int 是否结束事务
+         * */
+        static int transactionRun(bool is_first = true) ;
 
+        /**
+         * @brief 设为自动执行
+         * 
+         * @param auto_run 是否自动执行
+         * */
+        static void setAutoRun(bool auto_run = false) ;
+
+        /**
+         * @brief 获取自动执行状态
+         * 
+         * @return bool 是否自动执行
+         * 
+         * */
+        static bool getAutoRun() ;
     };
 } // namespace dash
 
