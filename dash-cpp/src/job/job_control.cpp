@@ -570,7 +570,12 @@ namespace dash
                 std::cout << "已停止";
                 break;
             case JobStatus::DONE:
-                std::cout << "已完成";
+                // 显示"已完成"并添加PID信息
+                if (!job->getProcesses().empty()) {
+                    std::cout << "已完成 PID:" << job->getProcesses()[0]->getPid();
+                } else {
+                    std::cout << "已完成";
+                }
                 break;
             }
 
