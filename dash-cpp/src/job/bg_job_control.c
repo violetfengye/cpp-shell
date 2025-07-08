@@ -312,9 +312,9 @@ showjob(struct output *out, struct job *jp, int mode)
         sprintf(status, "已停止(%s)", strsignal(WSTOPSIG(st)));
     } else if (WIFEXITED(st)) {
         if (WEXITSTATUS(st))
-            sprintf(status, "完成(%d)", WEXITSTATUS(st));
+            sprintf(status, "完成(%d) PID:%d", WEXITSTATUS(st), jp->ps->pid);
         else
-            strcpy(status, "完成");
+            sprintf(status, "完成 PID:%d", jp->ps->pid);
     } else {
         /* 被信号终止 */
         sprintf(status, "%s", strsignal(WTERMSIG(st)));
