@@ -28,7 +28,13 @@ enum class ExceptionType
     MEMORY,    // 内存错误
     IO         // 输入输出错误
 };
-
+// 输入类型
+enum class InputType
+{
+    normal,         // 普通输入
+    transaction,    // 事务输入
+    recall,         // 命令历史
+};
 // 节点类型
 enum class NodeType
 {
@@ -65,6 +71,7 @@ namespace dash
     class VariableManager;
     class BuiltinCommand;
     class ShellException;
+    class Transaction;
     
     /**
      * @brief 创建 Shell 实例

@@ -40,7 +40,10 @@ file(GLOB_RECURSE SOURCES
 file(GLOB_RECURSE HEADERS 
     "include/*.h"
 )
-
+message("所有被编译的头文件:")
+foreach(header IN LISTS HEADERS)
+    message(${header})
+endforeach()
 # 分离主函数文件和库文件
 file(GLOB MAIN_SOURCE "src/main.cpp")
 list(REMOVE_ITEM SOURCES ${MAIN_SOURCE})

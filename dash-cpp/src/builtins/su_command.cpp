@@ -1,6 +1,6 @@
 /**
  * @file su_command.cpp
- * @brief Su命令类实现，未完善，暂不更新
+ * @brief Su命令类实现，未完善，暂不更新，用作测试，Rikyon
  */
 
 #include <iostream>
@@ -13,6 +13,7 @@
 #include "core/shell.h"
 #include "variable/prompt_string.h"
 #include "utils/error.h"
+#include "utils/transaction.h"
 #include <termios.h>
 #include <pwd.h>
 #include <shadow.h>
@@ -37,8 +38,10 @@ namespace dash
         // 2 : -c
         // 手动解析选项，避免使用 getopt
         if (args.size() == 1) {
+            Transaction::setInputType(InputType::normal);
             mode = 1;
         }else if (args.size() == 2) {
+            Transaction::transactionStart(args[1]);
             if (args[1] == "-c") {
                 std::cerr << "su: 缺少参数: 用户名" << std::endl;
                 std::cerr << "su: 用法: su [-c|-l] [username]" << std::endl;
@@ -51,6 +54,7 @@ namespace dash
                 userName = args[1];
             }
         }else if (args.size() == 3) {
+            Transaction::setInputType(InputType::transaction);
             if (args[1] == "-c") {
                 mode = 2;
                 commandText = args[2];
@@ -61,6 +65,7 @@ namespace dash
                 std::cerr << "su: 无效选项: -" << args[1][1] << std::endl;
             }
         }else if (args.size() == 4) {
+            Transaction::transactionRecord( args[1] );
             if(args[1] == "-c") {
                 mode = 2;
                 userName = args[3];
@@ -71,10 +76,16 @@ namespace dash
                 return 1;
             }
         }else {
+            Transaction::transactionComplete();
             std::cerr << "su: 无效参数: " << args[1] << std::endl;
             std::cerr << "su: 用法: su [-c|-l] [username]" << std::endl;
             return 1;
         }
+        if (mode == 1) {
+        }else{
+            Transaction::setInputType(InputType::transaction);
+        }
+        /*
         //该功能暂时未完善
         struct spwd *sp = getspnam("root");
         if(sp==NULL){
@@ -87,6 +98,7 @@ namespace dash
 
         }
         std::string password = promptPassword(userName);
+        */
         //验证密码
         /*
         if (strcmp(getpassphrase(userName.c_str()), password.c_str()) != 0) {

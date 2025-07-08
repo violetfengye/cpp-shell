@@ -25,6 +25,7 @@
 #include "builtins/bg_command.h"
 #include "builtins/sprf_command.h"
 #include "builtins/su_command.h"
+#include "builtins/tsl_command.h"
 
 namespace dash
 {
@@ -754,6 +755,7 @@ namespace dash
         auto bg_cmd = std::make_shared<BgCommand>(shell_);
         auto sprf_cmd = std::make_shared<SprfCommand>(shell_);
         auto su_cmd = std::make_shared<SuCommand>(shell_);
+        auto tsl_cmd = std::make_shared<TslCommand>(shell_);
 
         // 保存内置命令对象
         builtin_commands_.push_back(cd_cmd);
@@ -765,6 +767,7 @@ namespace dash
         builtin_commands_.push_back(bg_cmd);
         builtin_commands_.push_back(sprf_cmd);
         builtin_commands_.push_back(su_cmd);
+        builtin_commands_.push_back(tsl_cmd);
 
         // 注册内置命令
         builtins_[cd_cmd->getName()] = [cd_cmd](const std::vector<std::string> &args) -> int
@@ -809,6 +812,10 @@ namespace dash
         builtins_[su_cmd->getName()] = [su_cmd](const std::vector<std::string> &args) -> int
         {
             return su_cmd->execute(args);
+        };
+        builtins_[tsl_cmd->getName()] = [tsl_cmd](const std::vector<std::string> &args) -> int
+        {
+            return tsl_cmd->execute(args);
         };
 
         // TODO: 添加更多内置命令

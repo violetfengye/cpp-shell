@@ -10,6 +10,7 @@
 #include "core/node.h"
 #include "core/input.h"
 #include "utils/error.h"
+#include "utils/transaction.h"
 
 namespace dash
 {
@@ -41,8 +42,28 @@ namespace dash
             std::string line;
             if (interactive)
             {
-                // 从 shell 的输入处理器获取一行输入
-                line = shell_->getInput()->readLine(true);
+                Transaction transaction;
+                switch (Transaction::getInputType())
+                {
+                case InputType::normal:
+                    // 从 shell 的输入处理器获取一行输入
+                    line = shell_->getInput()->readLine(true);
+                    break;
+                case InputType::record:
+                    // 从 shell 的输入处理器获取一行输入
+                    line = shell_->getInput()->readLine(true);
+                    // 传入事务处理器
+                    Transaction::addCommandString(line);
+                    break;
+                case InputType::transaction:
+                    // 用输入提供一个中断
+                    line = shell_->getInput()->readLine(true);
+                    // 从事务处理器获取一行输入
+                    line = Transaction::getCommandString();
+                default:
+                    break;
+                }
+                //std::cout<<"a input"<<std::endl;
                 if (line.empty())
                 {
                     return nullptr; // EOF
