@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <sstream>
 #include "builtins/source_command.h"
 #include "core/shell.h"
 #include "core/parser.h"
@@ -41,47 +42,59 @@ namespace dash
             return 1;
         }
 
-        // 读取文件内容
-        std::string script_content;
-        std::string line;
-        while (std::getline(file, line))
-        {
-            script_content += line + "\n";
-        }
-        
-        // 关闭文件
-        file.close();
-
-        // 创建词法分析器和解析器
-        Lexer lexer;
+        // 创建解析器
         Parser parser(shell_);
         
         int status = 0;
+        std::string line;
+        int line_number = 0;
         
         try
         {
-            // 对脚本内容进行词法分析
-            lexer.setInput(script_content);
-            
-            // 解析并执行脚本中的每个命令
-            while (!lexer.isEof())
+            // 逐行读取和执行脚本
+            while (std::getline(file, line))
             {
-                // 解析一个命令
-                std::unique_ptr<Node> node = parser.parse(lexer);
+                line_number++;
                 
-                if (node)
+                // 跳过空行和注释行
+                if (line.empty() || line[0] == '#')
                 {
-                    // 执行命令
-                    status = shell_->getExecutor()->execute(node.get());
+                    continue;
+                }
+                
+                // 去除行尾的回车符
+                if (!line.empty() && line[line.length() - 1] == '\r')
+                {
+                    line.erase(line.length() - 1);
+                }
+                
+                try
+                {
+                    // 解析当前行
+                    std::unique_ptr<Node> node = parser.parse(line);
+                    
+                    if (node)
+                    {
+                        // 执行解析后的命令树
+                        status = shell_->getExecutor()->execute(node.get());
+                    }
+                }
+                catch (const ShellException &e)
+                {
+                    std::cerr << "source: " << script_path << ":" << line_number 
+                              << ": " << e.what() << std::endl;
+                    // 继续执行下一行，而不是立即退出
                 }
             }
         }
-        catch (const ShellException &e)
+        catch (const std::exception &e)
         {
             std::cerr << "source: " << script_path << ": " << e.what() << std::endl;
+            file.close();
             return 1;
         }
         
+        file.close();
         return status;
     }
 
