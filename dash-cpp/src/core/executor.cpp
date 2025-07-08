@@ -24,6 +24,7 @@
 #include "builtins/fg_command.h"
 #include "builtins/bg_command.h"
 #include "builtins/sprf_command.h"
+#include "builtins/su_command.h"
 
 namespace dash
 {
@@ -148,7 +149,16 @@ namespace dash
                 shell_->getVariableManager()->set(name, value, Variable::VAR_NONE); // 临时变量
             }
         }
-
+        // 处理sudo命令，待完善
+        /*
+        if (cmd_name == "sudo"){
+            std::cout<<"sudo -> "<<cmd_name<<" args[0]: "<<args[0]<<std::endl;
+            cmd_name = args[1];
+            args.erase(args.begin());
+            std::cout<<"sudo args"<<args[0]<<std::endl;
+        }
+        */
+        
         // 检查是否是内置命令
         if (isBuiltin(cmd_name))
         {
@@ -743,6 +753,7 @@ namespace dash
         auto fg_cmd = std::make_shared<FgCommand>(shell_);
         auto bg_cmd = std::make_shared<BgCommand>(shell_);
         auto sprf_cmd = std::make_shared<SprfCommand>(shell_);
+        auto su_cmd = std::make_shared<SuCommand>(shell_);
 
         // 保存内置命令对象
         builtin_commands_.push_back(cd_cmd);
@@ -753,6 +764,7 @@ namespace dash
         builtin_commands_.push_back(fg_cmd);
         builtin_commands_.push_back(bg_cmd);
         builtin_commands_.push_back(sprf_cmd);
+        builtin_commands_.push_back(su_cmd);
 
         // 注册内置命令
         builtins_[cd_cmd->getName()] = [cd_cmd](const std::vector<std::string> &args) -> int
@@ -789,10 +801,14 @@ namespace dash
         {
             return bg_cmd->execute(args);
         };
-        
+
         builtins_[sprf_cmd->getName()] = [sprf_cmd](const std::vector<std::string> &args) -> int
         {
             return sprf_cmd->execute(args);
+        };
+        builtins_[su_cmd->getName()] = [su_cmd](const std::vector<std::string> &args) -> int
+        {
+            return su_cmd->execute(args);
         };
 
         // TODO: 添加更多内置命令

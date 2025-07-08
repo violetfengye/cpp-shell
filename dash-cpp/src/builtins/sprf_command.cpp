@@ -59,18 +59,6 @@ namespace dash
 
         // 设置提示符模式
         prompt_string::setPromptMode(mode);
-        /*
-        // 获取当前工作目录
-        std::string cwd = getCurrentDirectory(physical);
-
-        if (cwd.empty())
-        {
-            std::cerr << "pwd: 无法获取当前工作目录" << std::endl;
-            return 1;
-        }
-
-        std::cout << cwd << std::endl;
-        */
         return 0;
     }
 

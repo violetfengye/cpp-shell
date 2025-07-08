@@ -39,6 +39,7 @@ namespace dash
         std::string line;
         if (std::getline(file_, line))
         {
+            std::cout<<"now input"<<std::endl;
             return line;
         }
         return "";
