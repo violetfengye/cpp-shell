@@ -71,7 +71,7 @@ namespace dash
                 if (errno == ECHILD && kill(process->getPid(), 0) == 0)
                 {
                     // 进程存在但不是子进程，可能是守护进程
-                    continue;  // 保持运行状态
+                    continue; // 保持运行状态
                 }
                 else
                 {
@@ -352,7 +352,7 @@ namespace dash
 
     // 添加一个静态变量来防止递归调用
     static bool is_updating = false;
-    
+
     // 静态互斥锁，保护作业状态更新
     static std::mutex update_mutex;
 
@@ -360,7 +360,7 @@ namespace dash
     {
         // 使用互斥锁防止多线程或信号处理器并发访问
         std::lock_guard<std::mutex> lock(update_mutex);
-        
+
         // 防止递归调用
         if (is_updating)
             return;
@@ -372,29 +372,40 @@ namespace dash
         pid_t pid;
 
         // 连续尝试等待任何已完成的子进程
-        do {
-            if (wait_for_pid > 0) {
+        do
+        {
+            if (wait_for_pid > 0)
+            {
                 pid = waitpid(wait_for_pid, &status, WUNTRACED | WNOHANG);
-            } else {
+            }
+            else
+            {
                 pid = waitpid(-1, &status, WUNTRACED | WNOHANG);
             }
 
-            if (pid > 0) {
+            if (pid > 0)
+            {
                 // 找到了一个状态改变的子进程
                 // 更新对应进程的状态
                 bool process_found = false;
-                for (auto &pair : jobs_) {
+                for (auto &pair : jobs_)
+                {
                     Job *job = pair.second.get();
                     bool job_updated = false;
 
-                    for (const auto &process : job->getProcesses()) {
-                        if (process->getPid() == pid) {
+                    for (const auto &process : job->getProcesses())
+                    {
+                        if (process->getPid() == pid)
+                        {
                             process_found = true;
                             // 更新进程状态
-                            if (WIFSTOPPED(status)) {
+                            if (WIFSTOPPED(status))
+                            {
                                 process->setStopped(true);
                                 process->setStatus(status);
-                            } else {
+                            }
+                            else
+                            {
                                 process->setCompleted(true);
                                 process->setStatus(status);
                             }
@@ -403,51 +414,64 @@ namespace dash
                         }
                     }
 
-                    if (job_updated) {
+                    if (job_updated)
+                    {
                         // 更新作业状态
                         job->updateStatus();
                         // 只有状态确实发生了变化，才设置为未通知
-                        if (job->getStatus() == JobStatus::DONE || job->getStatus() == JobStatus::STOPPED) {
+                        if (job->getStatus() == JobStatus::DONE || job->getStatus() == JobStatus::STOPPED)
+                        {
                             job->setNotified(false);
                         }
                         break;
                     }
                 }
-                
+
                 // 如果找不到对应的进程，可能是被孤立的进程或其他程序的子进程
-                if (!process_found && pid > 0) {
+                if (!process_found && pid > 0)
+                {
                     // 这里可以记录日志，但不需要特殊处理
                 }
-            } else {
+            }
+            else
+            {
                 // waitpid返回0或负数，没有子进程状态变化或出错
                 break;
             }
         } while (pid > 0);
-        
+
         // 无论waitpid结果如何，都要检查所有作业中的进程状态
         // 这对于处理守护进程（双重fork后被init接管的进程）特别重要
-        for (auto &pair : jobs_) {
+        for (auto &pair : jobs_)
+        {
             Job *job = pair.second.get();
-            
+
             // 对于每个RUNNING状态的作业，检查其进程是否仍然存在
-            if (job->getStatus() == JobStatus::RUNNING) {
+            if (job->getStatus() == JobStatus::RUNNING)
+            {
                 bool all_completed = true;
-                
-                for (const auto &process : job->getProcesses()) {
-                    if (!process->isCompleted()) {
+
+                for (const auto &process : job->getProcesses())
+                {
+                    if (!process->isCompleted())
+                    {
                         // 使用kill(pid, 0)检查进程是否存在
-                        if (kill(process->getPid(), 0) == 0) {
+                        if (kill(process->getPid(), 0) == 0)
+                        {
                             // 进程存在
                             all_completed = false;
-                        } else if (errno == ESRCH) {
+                        }
+                        else if (errno == ESRCH)
+                        {
                             // 进程不存在
                             process->setCompleted(true);
                         }
                     }
                 }
-                
+
                 // 如果所有进程都已完成，更新作业状态
-                if (all_completed && job->getProcesses().size() > 0) {
+                if (all_completed && job->getProcesses().size() > 0)
+                {
                     job->updateStatus();
                 }
             }
@@ -553,7 +577,8 @@ namespace dash
                 bool first = true;
                 for (const auto &process : job->getProcesses())
                 {
-                    if (!first) std::cout << " ";
+                    if (!first)
+                        std::cout << " ";
                     std::cout << process->getPid();
                     first = false;
                 }
@@ -571,9 +596,12 @@ namespace dash
                 break;
             case JobStatus::DONE:
                 // 显示"已完成"并添加PID信息
-                if (!job->getProcesses().empty()) {
+                if (!job->getProcesses().empty())
+                {
                     std::cout << "已完成 PID:" << job->getProcesses()[0]->getPid();
-                } else {
+                }
+                else
+                {
                     std::cout << "已完成";
                 }
                 break;
@@ -634,23 +662,25 @@ namespace dash
 
     Job *JobControl::findCurrentJob() const
     {
-        if (current_job_id_ == -1) {
+        if (current_job_id_ == -1)
+        {
             // 没有当前作业，尝试找到最新的作业
             int newest_job_id = -1;
-            for (const auto &pair : jobs_) {
-                if (newest_job_id == -1 || pair.first > newest_job_id) {
+            for (const auto &pair : jobs_)
+            {
+                if (newest_job_id == -1 || pair.first > newest_job_id)
+                {
                     newest_job_id = pair.first;
                 }
             }
-            
-            if (newest_job_id != -1) {
+
+            if (newest_job_id != -1)
+            {
                 // 找到最新作业
                 return findJob(newest_job_id);
             }
             return nullptr;
         }
-        
+
         return findJob(current_job_id_);
     }
-
-} // namespace dash
