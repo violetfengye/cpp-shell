@@ -10,6 +10,7 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <queue>
 
 
 namespace dash
@@ -20,6 +21,7 @@ namespace dash
         normal,         // 普通输入
         transaction,    // 事务输入
         record,         // 记录输入
+        special         // 特殊事务
     };
     /**
      * @brief Transaction 事务处理类
@@ -81,6 +83,11 @@ namespace dash
          * @brief 是否自动执行
          * */
         static bool auto_run_;
+
+        /**
+         * @brief 特殊事务命令队列
+         */
+        static std::queue<std::string> special_command_list_;
 
     public:
         /**
@@ -187,6 +194,20 @@ namespace dash
          * 
          * */
         static bool getAutoRun() ;
+
+        /**
+         * @brief 添加特殊事务
+         * 
+         * @param command 命令
+         * */
+        static void addSpecialCommand(const std::string& command) ;
+
+        /**
+         * @brief 获取特殊事务
+         * 
+         * @return std::string 命令
+         * */
+        static std::string getSpecialCommand();
     };
 } // namespace dash
 

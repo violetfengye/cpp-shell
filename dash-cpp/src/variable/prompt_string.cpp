@@ -77,7 +77,7 @@ namespace dash{
             }
             else{
                 // 构建提示符
-                prompt = user + "@" + hostname + ":" + cwd + indicator;
+                prompt = user + "@" + hostname + ":" + cwd + indicator + " ";
                 //snprintf(prompt, PROINFOMAXSIZE, "%s@%s:%s%s ", user, hostname, cwd, indicator);
             }
                     
@@ -96,7 +96,7 @@ namespace dash{
             }
             else{
                 // 构建提示符
-                prompt = user + "@" + hostname + ":" + cwd + indicator;
+                prompt = user + "@" + hostname + ":" + cwd + indicator + " ";
                 //snprintf(prompt, PROINFOMAXSIZE, "%s@%s:%s%s ", user, hostname, cwd, indicator);
             }
         }

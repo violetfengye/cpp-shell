@@ -34,6 +34,7 @@ enum class InputType
     normal,         // 普通输入
     transaction,    // 事务输入
     recall,         // 命令历史
+    special         // 特殊事务
 };
 // 节点类型
 enum class NodeType

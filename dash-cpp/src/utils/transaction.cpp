@@ -221,7 +221,7 @@ namespace dash
             std::cout<<std::endl;
         std::cout<<"第 "<< current_command_index + 1<<" 条命令："<<Transaction::current_command_list_[current_command_index]<<std::endl;
         // 建立一个读取一个字符的shell输入
-        // a add d delete m modify t to end q quit j jump b back
+        // a add d delete m modify t to end q quit j jump b back h help
         if(auto_run_){
             return 0;
         }
@@ -265,16 +265,13 @@ namespace dash
                 current_command_index++;
                 return 1;
             }
-            
             break;
-        case 'm':
+        case 'h':
+            printf("\033[%dA", 1);
+            printf("\033[K");
             fflush(stdout);
-            // 从标准输入读取一行命令
-            std::getline(std::cin, command);
-            // 修改当前命令
-            current_command_list_.erase(current_command_list_.begin() + current_command_index);
-            current_command_list_.insert(current_command_list_.begin() + current_command_index, command);
-            break;
+            std::cout<<"a-add d-delete m-modify t-toEnd q-quit j-jump b-back h-help"<<std::endl;
+            return transactionRun(false);
         case 'j':
             if(current_command_index + 1 < Transaction::current_command_list_.size()){
                 current_command_index++;
@@ -290,16 +287,24 @@ namespace dash
                 return 1;
             }
             break;
-        case 't':
-            setAutoRun(true);
+        case 'm':
+            fflush(stdout);
+            // 从标准输入读取一行命令
+            std::getline(std::cin, command);
+            // 修改当前命令
+            current_command_list_.erase(current_command_list_.begin() + current_command_index);
+            current_command_list_.insert(current_command_list_.begin() + current_command_index, command);
             break;
         case 'q':
             Transaction::transactionInterrupt();
             break;
+        case 't':
+            setAutoRun(true);
+            break;
+        return 0;
         default:
             break;
         }
-        return 0;
     }
 
     bool Transaction::auto_run_ = false;
@@ -308,6 +313,21 @@ namespace dash
     }
     bool Transaction::getAutoRun(){
         return auto_run_;
+    }
+
+    std::queue<std::string> Transaction::special_command_list_;
+    
+    void Transaction::addSpecialCommand(const std::string &command){
+        special_command_list_.push(command);
+    }
+
+    std::string Transaction::getSpecialCommand(){
+        if(special_command_list_.empty()){
+            return "";
+        }
+        std::string command = special_command_list_.front();
+        special_command_list_.pop();
+        return command;
     }
 
 } // namespace dash

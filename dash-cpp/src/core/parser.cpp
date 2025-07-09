@@ -42,9 +42,15 @@ namespace dash
             std::string line;
             if (interactive)
             {
-                Transaction transaction;
                 switch (Transaction::getInputType())
                 {
+                //特殊的事务，用于实现su指令的调用
+                case InputType::special:
+                    line = Transaction::getSpecialCommand();
+                    if (line != "")break;
+                    else {
+                        Transaction::setInputType(InputType::normal);
+                    }
                 case InputType::normal:
                     // 从 shell 的输入处理器获取一行输入
                     line = shell_->getInput()->readLine(true);

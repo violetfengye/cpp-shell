@@ -26,6 +26,9 @@
 #include "builtins/sprf_command.h"
 #include "builtins/su_command.h"
 #include "builtins/tsl_command.h"
+#include "builtins/otr_command.h"
+//强行认定为外部函数的实现
+#include "utils/transaction.h"
 
 namespace dash
 {
@@ -161,7 +164,7 @@ namespace dash
         */
         
         // 检查是否是内置命令
-        if (isBuiltin(cmd_name))
+        if (Transaction::getInputType() != InputType::special && isBuiltin(cmd_name))
         {
             // 设置重定向
             std::unordered_map<int, int> saved_fds;
@@ -756,6 +759,7 @@ namespace dash
         auto sprf_cmd = std::make_shared<SprfCommand>(shell_);
         auto su_cmd = std::make_shared<SuCommand>(shell_);
         auto tsl_cmd = std::make_shared<TslCommand>(shell_);
+        auto otr_cmd = std::make_shared<OtrCommand>(shell_);
 
         // 保存内置命令对象
         builtin_commands_.push_back(cd_cmd);
@@ -768,6 +772,7 @@ namespace dash
         builtin_commands_.push_back(sprf_cmd);
         builtin_commands_.push_back(su_cmd);
         builtin_commands_.push_back(tsl_cmd);
+        builtin_commands_.push_back(otr_cmd);
 
         // 注册内置命令
         builtins_[cd_cmd->getName()] = [cd_cmd](const std::vector<std::string> &args) -> int
@@ -816,6 +821,10 @@ namespace dash
         builtins_[tsl_cmd->getName()] = [tsl_cmd](const std::vector<std::string> &args) -> int
         {
             return tsl_cmd->execute(args);
+        };
+        builtins_[otr_cmd->getName()] = [otr_cmd](const std::vector<std::string> &args) -> int
+        {
+            return otr_cmd->execute(args);
         };
 
         // TODO: 添加更多内置命令
